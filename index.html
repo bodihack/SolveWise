@@ -1,0 +1,4186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة التدريب الذكي لمسائل Codeforces</title>
+    <style>
+        /* =========================================================
+       DESIGN TOKENS — الوضع الليلي الأساسي (تم الحفاظ عليه وتوسيعه)
+       ========================================================= */
+        :root {
+            --primary: #58a6ff;
+            --primary-hover: #79c0ff;
+            --bg: #0d1117;
+            --bg-elevated: #1c2128;
+            --card-bg: #161b22;
+            --border: #30363d;
+            --border-soft: #21262d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --text-dim: #6e7681;
+            --tag-bg: #21262d;
+            --tag-active: #238636;
+            --card-hover: #1c2128;
+
+            --success: #3fb950;
+            --success-strong: #238636;
+            --warning: #d29922;
+            --warning-bg: rgba(210, 153, 34, 0.12);
+            --danger: #f85149;
+            --danger-bg: rgba(248, 81, 73, 0.12);
+
+            --rating-color: #ff7b7b;
+            --rating-bg: rgba(255, 123, 123, 0.1);
+
+            /* درجات صعوبة المسائل — بنفس تقاليد Codeforces الحقيقية */
+            --r-gray: #8b949e;
+            --r-green: #3fb950;
+            --r-cyan: #39c5cf;
+            --r-blue: #58a6ff;
+            --r-purple: #bc8cff;
+            --r-orange: #f0883e;
+            --r-red: #ff7b72;
+
+            --sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --mono: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, 'Courier New', monospace;
+
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.55);
+            --sidebar-w: 300px;
+            --header-h: 60px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--sans);
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection {
+            background: rgba(88, 166, 255, 0.35);
+        }
+
+        /* شريط تمرير مخصص للوضع الليلي */
+        ::-webkit-scrollbar {
+            width: 9px;
+            height: 9px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #484f58;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        button {
+            font-family: var(--sans);
+            cursor: pointer;
+            border: none;
+            border-radius: var(--radius-sm);
+            transition: 0.18s ease;
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* =========================================================
+       شاشة التحميل الأولى
+       ========================================================= */
+        #loading {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            color: var(--text-muted);
+            font-size: 1.05em;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loading .loading-title {
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        #loading .loading-error {
+            color: var(--danger);
+        }
+
+        #loading button {
+            margin-top: 6px;
+            padding: 10px 22px;
+            background: var(--primary);
+            color: #0d1117;
+            font-weight: bold;
+        }
+
+        /* =========================================================
+       الهيكل العام: Header + Sidebar + Main
+       ========================================================= */
+        #app {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            height: var(--header-h);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 18px;
+            background: rgba(13, 17, 23, 0.92);
+            backdrop-filter: blur(6px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .topbar .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            color: var(--primary);
+            font-size: 1.15em;
+            white-space: nowrap;
+        }
+
+        .topbar .brand .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .topbar .spacer {
+            flex: 1;
+        }
+
+        .topbar-stats {
+            display: flex;
+            gap: 10px;
+            font-family: var(--mono);
+            font-size: 0.82em;
+            color: var(--text-muted);
+        }
+
+        .topbar-stats b {
+            color: var(--text);
+        }
+
+        .icon-btn {
+            background: var(--tag-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05em;
+        }
+
+        .icon-btn:hover {
+            background: var(--border);
+        }
+
+        .sidebar-toggle {
+            display: none;
+        }
+
+        .layout {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .sidebar {
+            width: var(--sidebar-w);
+            flex-shrink: 0;
+            min-height: calc(100vh - var(--header-h));
+            border-left: 1px solid var(--border);
+            padding: 18px;
+            position: sticky;
+            top: var(--header-h);
+            max-height: calc(100vh - var(--header-h));
+            overflow-y: auto;
+        }
+
+        .main {
+            flex: 1;
+            min-width: 0;
+            padding: 18px 20px;
+        }
+
+        .sb-section {
+            margin-bottom: 22px;
+        }
+
+        .sb-title {
+            font-size: 0.78em;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        input[type=text],
+        input[type=number],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            background-color: var(--bg);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            font-size: 0.92em;
+            font-family: var(--sans);
+        }
+
+        textarea {
+            font-family: var(--sans);
+            resize: vertical;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--text-dim);
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+
+        .range-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .segmented {
+            display: flex;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+
+        .segmented button {
+            flex: 1;
+            background: var(--bg);
+            color: var(--text-muted);
+            padding: 8px 6px;
+            font-size: 0.85em;
+            border-radius: 0;
+        }
+
+        .segmented button.active {
+            background: var(--success-strong);
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .segmented button:not(:last-child) {
+            border-left: 1px solid var(--border);
+        }
+
+        .rating-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .rating-chip {
+            font-family: var(--mono);
+            font-size: 0.78em;
+            padding: 5px 9px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--tag-bg);
+            color: var(--text-muted);
+        }
+
+        .rating-chip.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(88, 166, 255, 0.12);
+            font-weight: bold;
+        }
+
+        .tags-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 4px 2px;
+        }
+
+        .tag-chip {
+            background-color: var(--tag-bg);
+            color: var(--text);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid var(--border);
+            transition: 0.15s;
+        }
+
+        .tag-chip:hover {
+            background-color: var(--border);
+        }
+
+        .tag-chip.active {
+            background-color: var(--tag-active);
+            color: white;
+            border-color: var(--tag-active);
+            font-weight: bold;
+        }
+
+        .clear-filters-btn {
+            width: 100%;
+            padding: 9px;
+            background: transparent;
+            color: var(--danger);
+            border: 1px dashed var(--danger);
+            font-size: 0.85em;
+        }
+
+        .clear-filters-btn:hover {
+            background: var(--danger-bg);
+        }
+
+        .resume-card {
+            background: var(--tag-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            font-size: 0.82em;
+            cursor: pointer;
+        }
+
+        .resume-card:hover {
+            border-color: var(--primary);
+        }
+
+        .resume-card .rc-label {
+            color: var(--text-dim);
+            font-size: 0.85em;
+            margin-bottom: 4px;
+        }
+
+        .resume-card .rc-name {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* =========================================================
+       شريط البحث العلوي في المحتوى الرئيسي
+       ========================================================= */
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .search-bar input {
+            font-size: 1em;
+            padding: 13px 14px;
+        }
+
+        .results-info {
+            font-weight: bold;
+            color: var(--success);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 0.92em;
+        }
+
+        .results-info .muted {
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        /* =========================================================
+       بطاقات المسائل
+       ========================================================= */
+        .problems-list {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .problem-card {
+            border: 1px solid var(--border);
+            border-right: 4px solid var(--r-gray);
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            background: var(--card-bg);
+            transition: 0.15s;
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .problem-card:hover {
+            background-color: var(--card-hover);
+            border-color: var(--primary);
+        }
+
+        .problem-info {
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        .problem-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .problem-id {
+            font-family: var(--mono);
+            color: var(--text-dim);
+            font-size: 0.85em;
+        }
+
+        .problem-title {
+            font-size: 1.03em;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+            background: none;
+            border: none;
+            padding: 0;
+            text-align: right;
+        }
+
+        .problem-title:hover {
+            text-decoration: underline;
+        }
+
+        .badge-mini {
+            font-size: 0.72em;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .badge-solved {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--success);
+        }
+
+        .badge-taught {
+            background: rgba(210, 153, 34, 0.15);
+            color: var(--warning);
+        }
+
+        .tags {
+            margin-top: 7px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .tag {
+            background: var(--tag-bg);
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 0.72em;
+            border: 1px solid var(--border);
+        }
+
+        .card-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+            min-width: 128px;
+        }
+
+        .rating-badge {
+            font-family: var(--mono);
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            text-align: center;
+            width: 100%;
+        }
+
+        .tier-gray {
+            color: var(--r-gray);
+            background: rgba(139, 148, 158, 0.12);
+        }
+
+        .tier-green {
+            color: var(--r-green);
+            background: rgba(63, 185, 80, 0.12);
+        }
+
+        .tier-cyan {
+            color: var(--r-cyan);
+            background: rgba(57, 197, 207, 0.12);
+        }
+
+        .tier-blue {
+            color: var(--r-blue);
+            background: rgba(88, 166, 255, 0.12);
+        }
+
+        .tier-purple {
+            color: var(--r-purple);
+            background: rgba(188, 140, 255, 0.12);
+        }
+
+        .tier-orange {
+            color: var(--r-orange);
+            background: rgba(240, 136, 62, 0.12);
+        }
+
+        .tier-red {
+            color: var(--r-red);
+            background: rgba(255, 123, 114, 0.12);
+        }
+
+        .quick-solved-toggle {
+            background: var(--tag-bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 5px 8px;
+            font-size: 0.78em;
+            font-weight: bold;
+        }
+
+        .quick-solved-toggle.on {
+            background: var(--success-strong);
+            color: #fff;
+            border-color: var(--success-strong);
+        }
+
+        .submit-btn {
+            background-color: var(--success-strong);
+            color: white;
+            padding: 6px 8px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-align: center;
+            display: block;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+        }
+
+        .submit-btn:hover {
+            background-color: #2ea043;
+        }
+
+        /* =========================================================
+       Pagination
+       ========================================================= */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            background: var(--tag-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 14px;
+            font-size: 0.88em;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination button:not(:disabled):hover {
+            border-color: var(--primary);
+        }
+
+        .pagination .page-info {
+            font-family: var(--mono);
+            font-size: 0.85em;
+            color: var(--text-muted);
+            padding: 0 6px;
+        }
+
+        .empty-state,
+        .error-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--text-muted);
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-md);
+        }
+
+        .error-state {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        /* =========================================================
+       Modal — عارض المسألة
+       ========================================================= */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(1, 4, 9, 0.72);
+            z-index: 100;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 30px 16px;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 880px;
+            box-shadow: var(--shadow-modal);
+            animation: modalIn 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 60px);
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .modal-header .mh-title {
+            flex: 1;
+        }
+
+        .modal-header h2 {
+            margin: 0 0 8px 0;
+            color: var(--primary);
+            font-size: 1.25em;
+        }
+
+        .modal-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: var(--tag-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1.1em;
+            flex-shrink: 0;
+        }
+
+        .modal-close:hover {
+            background: var(--danger);
+            color: #fff;
+            border-color: var(--danger);
+        }
+
+        .modal-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 12px 22px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .link-chip {
+            font-size: 0.78em;
+            padding: 6px 11px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--tag-bg);
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .link-chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            padding: 0 22px;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .modal-tab {
+            background: transparent;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            font-weight: 700;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            font-size: 0.92em;
+        }
+
+        .modal-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .modal-tab:hover:not(.active) {
+            color: var(--text);
+        }
+
+        .modal-body {
+            padding: 20px 22px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            padding: 16px 22px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            font-weight: 700;
+            font-size: 0.9em;
+            border-radius: var(--radius-sm);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #041225;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: var(--success-strong);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #2ea043;
+        }
+
+        .btn-success.on {
+            background: transparent;
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .btn-ghost {
+            background: var(--tag-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--primary);
+        }
+
+        .btn-danger-outline {
+            background: transparent;
+            color: var(--danger);
+            border: 1px dashed var(--danger);
+        }
+
+        .btn-danger-outline:hover {
+            background: var(--danger-bg);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* نص المسألة الأصلي */
+        .statement {
+            direction: ltr;
+            text-align: left;
+            line-height: 1.75;
+            font-size: 0.98em;
+        }
+
+        .statement h4 {
+            color: var(--primary);
+            margin: 18px 0 8px;
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .statement p {
+            margin: 8px 0;
+            color: var(--text);
+        }
+
+        .statement .cf-header-props {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            font-family: var(--mono);
+        }
+
+        .statement .cf-header-props b {
+            color: var(--text);
+        }
+
+        .statement pre,
+        .statement .io-block pre {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            overflow-x: auto;
+            font-family: var(--mono);
+            font-size: 0.88em;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .io-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 10px 0;
+        }
+
+        .io-grid .io-block .io-label {
+            font-size: 0.78em;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 640px) {
+            .io-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* تبويب الترجمة */
+        .translation-box {
+            direction: rtl;
+            text-align: right;
+            line-height: 2;
+            font-size: 1em;
+        }
+
+        .translation-box .statement {
+            direction: rtl;
+            text-align: right;
+        }
+
+        .ai-cta {
+            text-align: center;
+            padding: 30px 16px;
+        }
+
+        .ai-cta p {
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .ai-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            padding: 20px;
+            justify-content: center;
+        }
+
+        .ai-loading .spinner {
+            width: 20px;
+            height: 20px;
+            border-width: 2px;
+        }
+
+        .ai-error-box {
+            background: var(--danger-bg);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.88em;
+            line-height: 1.7;
+        }
+
+        .ai-error-box a {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .coach-section {
+            margin-bottom: 18px;
+        }
+
+        .coach-section h4 {
+            color: var(--warning);
+            margin: 0 0 6px;
+            font-size: 0.95em;
+        }
+
+        .coach-section .content {
+            line-height: 1.9;
+        }
+
+        .hint-item {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+
+        .hint-item summary,
+        .hint-item .hint-btn {
+            padding: 11px 14px;
+            background: var(--tag-bg);
+            font-weight: bold;
+            color: var(--warning);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            text-align: right;
+        }
+
+        .hint-item .hint-body {
+            padding: 12px 14px;
+            line-height: 1.8;
+            border-top: 1px solid var(--border);
+        }
+
+        .locked-hint {
+            opacity: 0.5;
+        }
+
+        .code-warning-box {
+            margin-top: 18px;
+            padding: 14px;
+            border: 1px dashed var(--danger);
+            border-radius: var(--radius-sm);
+            background: var(--danger-bg);
+        }
+
+        /* =========================================================
+       وضع التدريب — Overlay مستقل
+       ========================================================= */
+        .training-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 200;
+            flex-direction: column;
+        }
+
+        .training-overlay.open {
+            display: flex;
+        }
+
+        .training-top {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 22px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .training-top h3 {
+            margin: 0;
+            color: var(--primary);
+            flex: 1;
+        }
+
+        .stepper {
+            display: flex;
+            gap: 4px;
+            padding: 0 22px 14px;
+            flex-wrap: wrap;
+        }
+
+        .step-pill {
+            flex: 1;
+            min-width: 90px;
+            text-align: center;
+            padding: 9px 6px;
+            font-size: 0.78em;
+            font-weight: bold;
+            background: var(--tag-bg);
+            color: var(--text-dim);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .step-pill.done {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .step-pill.current {
+            background: var(--primary);
+            color: #041225;
+            border-color: var(--primary);
+        }
+
+        .training-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 22px;
+            max-width: 880px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .training-nav {
+            display: flex;
+            gap: 10px;
+            padding: 16px 22px;
+            border-top: 1px solid var(--border);
+            justify-content: space-between;
+        }
+
+        .timer-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .timer-display {
+            font-family: var(--mono);
+            font-size: 1.6em;
+            font-weight: bold;
+            color: var(--primary);
+            min-width: 90px;
+        }
+
+        .timer-box select {
+            width: auto;
+        }
+
+        .notes-area {
+            margin-top: 16px;
+        }
+
+        .notes-area .sb-title {
+            margin-bottom: 6px;
+        }
+
+        /* =========================================================
+       نافذة الإعدادات
+       ========================================================= */
+        .settings-help {
+            font-size: 0.8em;
+            color: var(--text-dim);
+            line-height: 1.7;
+            margin-top: 4px;
+        }
+
+        .settings-help code {
+            background: var(--tag-bg);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: var(--mono);
+        }
+
+        /* =========================================================
+       Toast
+       ========================================================= */
+        .toast-wrap {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .toast {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 11px 20px;
+            border-radius: 30px;
+            font-size: 0.88em;
+            box-shadow: var(--shadow-modal);
+            animation: toastIn 0.2s ease;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toast.success {
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .toast.error {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* =========================================================
+       Responsive
+       ========================================================= */
+        @media (max-width: 980px) {
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                position: static;
+                max-height: none;
+                border-left: none;
+                border-bottom: 1px solid var(--border);
+                display: none;
+            }
+
+            .sidebar.open {
+                display: block;
+            }
+
+            .sidebar-toggle {
+                display: flex;
+            }
+
+            .io-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .main {
+                padding: 12px;
+            }
+
+            .modal-box {
+                max-height: 100vh;
+                border-radius: 0;
+            }
+
+            .modal-overlay {
+                padding: 0;
+            }
+
+            .problem-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .card-actions {
+                flex-direction: row;
+                min-width: 0;
+            }
+
+            .rating-badge {
+                flex: 1;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* =========================================================
+       مكوّن موحّد: تقدّم استدعاءات الذكاء الاصطناعي (AIProgress)
+       يُستخدم في: الترجمة العربية، شرح المسألة، المدرب، وأي ميزة AI مستقبلية
+       ========================================================= */
+        .ai-progress-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            margin: 6px 0;
+        }
+
+        .ai-progress-top {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .ai-progress-top .spinner {
+            width: 30px;
+            height: 30px;
+            border-width: 3px;
+            flex-shrink: 0;
+        }
+
+        .ai-progress-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ai-progress-label {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 0.95em;
+            margin-bottom: 4px;
+        }
+
+        .ai-progress-stage {
+            color: var(--text-muted);
+            font-size: 0.85em;
+            transition: opacity 0.15s ease;
+        }
+
+        .ai-progress-pct {
+            font-family: var(--mono);
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.05em;
+            min-width: 46px;
+            text-align: left;
+        }
+
+        .ai-progress-bar-track {
+            width: 100%;
+            height: 8px;
+            border-radius: 8px;
+            background: var(--tag-bg);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .ai-progress-bar-fill {
+            height: 100%;
+            border-radius: 8px;
+            background: linear-gradient(90deg, var(--primary), var(--r-cyan), var(--primary));
+            background-size: 200% 100%;
+            animation: aiProgressShimmer 1.4s linear infinite;
+            transition: width 0.35s ease;
+        }
+
+        @keyframes aiProgressShimmer {
+            0% {
+                background-position: 0% 0;
+            }
+
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        .ai-error-card {
+            text-align: center;
+            padding: 26px 18px;
+            border: 1px solid var(--danger);
+            border-radius: var(--radius-md);
+            background: var(--danger-bg);
+        }
+
+        .ai-error-icon {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+
+        .ai-error-title {
+            color: var(--danger);
+            font-weight: 800;
+            font-size: 1.05em;
+            margin-bottom: 6px;
+        }
+
+        .ai-error-msg {
+            color: var(--text-muted);
+            font-size: 0.88em;
+            line-height: 1.7;
+            margin-bottom: 14px;
+        }
+
+        /* =========================================================
+       تبويب "شرح المسألة" (Problem Explanation)
+       ========================================================= */
+        .explanation-example-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            margin-bottom: 10px;
+        }
+
+        .explanation-example-box .ex-title {
+            color: var(--primary);
+            font-weight: 700;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+        }
+
+        .glossary-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .glossary-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+        }
+
+        .glossary-item b {
+            color: var(--warning);
+        }
+
+        /* =========================================================
+       الشريط الجانبي: بطاقة حساب Codeforces
+       ========================================================= */
+        .cf-account-box {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            background: var(--card-bg);
+        }
+
+        .cf-account-connect .field {
+            margin-bottom: 8px;
+        }
+
+        .cf-account-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .cf-account-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+
+        .cf-account-name {
+            font-weight: 800;
+            color: var(--primary);
+            font-size: 0.95em;
+            word-break: break-word;
+        }
+
+        .cf-account-rank {
+            font-size: 0.78em;
+            color: var(--text-muted);
+        }
+
+        .cf-account-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .cf-account-actions .btn {
+            width: 100%;
+            font-size: 0.82em;
+            padding: 8px;
+        }
+
+        .cf-sync-note {
+            font-size: 0.72em;
+            color: var(--text-dim);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* =========================================================
+       لوحة التحكم (Dashboard)
+       ========================================================= */
+        .dash-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .dash-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .dash-handle {
+            font-size: 1.3em;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .dash-rank-line {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .dash-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .dash-stat-card {
+            background: var(--tag-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .dash-stat-value {
+            font-size: 1.35em;
+            font-weight: 800;
+            color: var(--primary);
+            font-family: var(--mono);
+        }
+
+        .dash-stat-label {
+            font-size: 0.75em;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .dash-section-title {
+            font-size: 0.92em;
+            font-weight: 800;
+            color: var(--text);
+            margin: 18px 0 10px;
+        }
+
+        .dash-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+            font-size: 0.8em;
+        }
+
+        .dash-bar-label {
+            width: 78px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-family: var(--mono);
+        }
+
+        .dash-bar-track {
+            flex: 1;
+            height: 10px;
+            background: var(--tag-bg);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .dash-bar-fill {
+            height: 100%;
+            background: var(--success-strong);
+        }
+
+        .dash-bar-count {
+            width: 34px;
+            text-align: left;
+            font-family: var(--mono);
+            color: var(--text-dim);
+        }
+
+        .dash-tag-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+            font-size: 0.78em;
+        }
+
+        .dash-tag-label {
+            width: 140px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .recommend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .recommend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--tag-bg);
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .recommend-item:hover {
+            border-color: var(--primary);
+            background: var(--card-hover);
+        }
+
+        .recommend-item .ri-name {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 0.85em;
+        }
+
+        .recommend-item .ri-tags {
+            font-size: 0.72em;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .quick-solved-toggle.cf-verified {
+            background: rgba(63, 185, 80, 0.18);
+            border-color: var(--success);
+            color: var(--success);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ============================================================
+     شاشة التحميل الأولية
+     ============================================================ -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <div class="loading-title">منصة التدريب الذكي لمسائل Codeforces</div>
+        <div id="loadingText">جاري تحميل جميع المسائل من قاعدة بيانات Codeforces (لحظات من فضلك)...</div>
+        <button id="loadingRetryBtn" style="display:none;" onclick="App.init()">إعادة المحاولة</button>
+    </div>
+
+    <!-- ============================================================
+     التطبيق الرئيسي
+     ============================================================ -->
+    <div id="app">
+
+        <!-- الشريط العلوي -->
+        <div class="topbar">
+            <button class="icon-btn sidebar-toggle" onclick="UI.toggleSidebar()" title="الفلاتر">☰</button>
+            <div class="brand"><span class="dot"></span> منصة Codeforces الذكية</div>
+            <div class="spacer"></div>
+            <div class="topbar-stats" id="topbarStats"></div>
+            <button class="icon-btn" onclick="UI.openSettings()" title="إعدادات الذكاء الاصطناعي">⚙️</button>
+        </div>
+
+        <div class="layout">
+
+            <!-- الشريط الجانبي: البحث والفلاتر -->
+            <aside class="sidebar" id="sidebar">
+
+                <div class="sb-section" id="cfAccountSection">
+                    <div class="sb-title">👤 حساب Codeforces</div>
+                    <div id="cfAccountBox" class="cf-account-box"></div>
+                </div>
+
+                <div class="sb-section" id="resumeSection" style="display:none;">
+                    <div class="sb-title">استكمال آخر جلسة</div>
+                    <div class="resume-card" id="resumeCard" onclick="TrainingResume.openLast()"></div>
+                </div>
+
+                <div class="sb-section">
+                    <div class="sb-title">🔍 بحث بالاسم</div>
+                    <div class="field">
+                        <input type="text" id="nameInput" placeholder="اكتب أي جزء من اسم المسألة..."
+                            oninput="SearchEngine.onFiltersChanged()">
+                    </div>
+                </div>
+
+                <div class="sb-section">
+                    <div class="sb-title">📊 حالة الحل</div>
+                    <div class="segmented" id="solvedFilterGroup">
+                        <button class="active" data-val="all"
+                            onclick="SearchEngine.setSolvedFilter('all')">الكل</button>
+                        <button data-val="solved" onclick="SearchEngine.setSolvedFilter('solved')">تم حلها</button>
+                        <button data-val="unsolved" onclick="SearchEngine.setSolvedFilter('unsolved')">لم تُحل</button>
+                    </div>
+                </div>
+
+                <div class="sb-section">
+                    <div class="sb-title">🎯 التقييم (Rating)</div>
+                    <div class="field range-row">
+                        <input type="number" id="minRating" placeholder="من (800)"
+                            oninput="SearchEngine.onRangeInputChanged()">
+                        <input type="number" id="maxRating" placeholder="إلى (3500)"
+                            oninput="SearchEngine.onRangeInputChanged()">
+                    </div>
+                    <div class="rating-chip-row" id="ratingChipsContainer"></div>
+                </div>
+
+                <div class="sb-section">
+                    <div class="sb-title">🏷️ التصنيفات (Tags)</div>
+                    <div class="tags-selector" id="tagsContainer"></div>
+                </div>
+
+                <div class="sb-section">
+                    <button class="clear-filters-btn" onclick="SearchEngine.clearAll()">✕ مسح كل الفلاتر</button>
+                </div>
+
+            </aside>
+
+            <!-- المحتوى الرئيسي: قائمة المسائل -->
+            <main class="main">
+                <div id="resultsInfo" class="results-info"></div>
+                <div id="problemsList" class="problems-list"></div>
+                <div id="paginationBar" class="pagination"></div>
+            </main>
+
+        </div>
+    </div>
+
+    <!-- ============================================================
+     Modal — عارض المسألة (English / العربية / شرح المسألة / المدرب)
+     ============================================================ -->
+    <div class="modal-overlay" id="problemModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="mh-title">
+                    <h2 id="modalTitle"></h2>
+                    <div class="modal-meta" id="modalMeta"></div>
+                </div>
+                <button class="modal-close" onclick="ProblemViewer.close()">✕</button>
+            </div>
+            <div class="modal-links" id="modalLinks"></div>
+            <div class="modal-tabs" id="modalTabs">
+                <button class="modal-tab active" data-tab="english" onclick="ProblemViewer.switchTab('english')">📄
+                    English</button>
+                <button class="modal-tab" data-tab="arabic" onclick="ProblemViewer.switchTab('arabic')">🌐
+                    العربية</button>
+                <button class="modal-tab" data-tab="explanation" onclick="ProblemViewer.switchTab('explanation')">🧩 شرح
+                    المسألة</button>
+                <button class="modal-tab" data-tab="coach" onclick="ProblemViewer.switchTab('coach')">🧠 المدرب</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="solvedToggleBtn" onclick="ProblemViewer.toggleSolved()">✓ تم
+                    الحل</button>
+                <button class="btn btn-primary" onclick="TrainingMode.start()">🎯 ابدأ التدريب</button>
+                <button class="btn btn-ghost" onclick="ProblemViewer.close()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+     Overlay — وضع التدريب الموجّه
+     ============================================================ -->
+    <div class="training-overlay" id="trainingOverlay">
+        <div class="training-top">
+            <h3 id="trainingTitle">وضع التدريب</h3>
+            <button class="icon-btn" onclick="TrainingMode.exit()" title="إنهاء التدريب">✕</button>
+        </div>
+        <div class="stepper" id="trainingStepper"></div>
+        <div class="training-body" id="trainingBody"></div>
+        <div class="training-nav">
+            <button class="btn btn-ghost" id="trainingBackBtn" onclick="TrainingMode.back()">→ السابق</button>
+            <button class="btn btn-primary" id="trainingNextBtn" onclick="TrainingMode.next()">التالي ←</button>
+        </div>
+    </div>
+
+    <!-- ============================================================
+     Modal — إعدادات الذكاء الاصطناعي
+     ============================================================ -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-box" style="max-width: 520px;">
+            <div class="modal-header">
+                <div class="mh-title">
+                    <h2>⚙️ إعدادات الذكاء الاصطناعي</h2>
+                </div>
+                <button class="modal-close" onclick="UI.closeSettings()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label class="sb-title">مفتاح API</label>
+                    <input type="text" id="settingsApiKey" placeholder="sk-...">
+                </div>
+                <div class="field">
+                    <label class="sb-title">رابط الـ Endpoint</label>
+                    <input type="text" id="settingsEndpoint" placeholder="https://api.openai.com/v1/chat/completions">
+                </div>
+                <div class="field">
+                    <label class="sb-title">اسم النموذج (Model)</label>
+                    <input type="text" id="settingsModel" placeholder="gpt-4o-mini">
+                </div>
+                <div class="settings-help">
+                    يتم حفظ هذه القيم محلياً في متصفحك فقط (<code>localStorage</code>) ولا تُرسل لأي جهة سوى الـ
+                    Endpoint الذي تحدده.
+                    هذا الملف عبارة عن تطبيق من صفحة واحدة (Front-End فقط)، لذلك أي مفتاح API يوضع هنا سيكون مرئياً داخل
+                    طلبات المتصفح —
+                    لا تستخدم مفاتيح إنتاجية حساسة، ويُفضّل لاحقاً تمرير الطلبات عبر Backend Proxy خاص بك.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="UI.saveSettings()">حفظ</button>
+                <button class="btn btn-ghost" onclick="UI.closeSettings()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+     Modal — لوحة التحكم (تقدّم حساب Codeforces + مسائل مقترحة)
+     ============================================================ -->
+    <div class="modal-overlay" id="dashboardModal">
+        <div class="modal-box" style="max-width: 760px;">
+            <div class="modal-header">
+                <div class="mh-title">
+                    <h2>📊 لوحة التحكم</h2>
+                </div>
+                <button class="modal-close" onclick="Dashboard.close()">✕</button>
+            </div>
+            <div class="modal-body" id="dashboardBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="Dashboard.refresh()">🔄 تحديث التقدم</button>
+                <button class="btn btn-ghost" onclick="Dashboard.close()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-wrap" id="toastWrap"></div>
+
+    <script>
+        /* =====================================================================
+           منصة Codeforces الذكية — Front-End تطبيق من صفحة واحدة (Vanilla JS)
+           تنظيم الكود في وحدات (Modules) منطقية:
+             1. CONFIG            — الإعدادات والثوابت
+             2. Utils              — دوال مساعدة عامة (Toast, Debounce, Escaping...)
+             3. StorageManager     — كل ما يخص localStorage (التقدم، الكاش، الإعدادات، حساب Codeforces)
+             4. CFApi               — التعامل مع Codeforces API العام (جلب كل المسائل)
+             5. CFAccount            — ربط حساب Codeforces الشخصي (Profile + Submissions + إحصاءات)
+             6. StatementFetcher      — جلب/تحليل/تنظيف نص المسألة (عبر Cloudflare Worker خاص بالمشروع)
+             7. AIEngine                — التكامل مع نموذج الذكاء الاصطناعي (ترجمة + شرح + تدريب)
+             8. AIProgress                — مكوّن موحّد لعرض تقدّم استدعاءات الذكاء الاصطناعي (قابل لإعادة الاستخدام)
+             9. SearchEngine                — الفلترة + الترقيم (Pagination)
+            10. UI                            — العرض العام (القائمة، الشريط الجانبي، الإعدادات)
+            11. Dashboard                      — لوحة تحكم حساب Codeforces والمسائل المقترحة
+            12. ProblemViewer                    — نافذة عرض المسألة (Tabs: English/عربي/شرح المسألة/مدرب)
+            13. TrainingMode                      — وضع التدريب الموجّه خطوة بخطوة
+            14. App                                — نقطة الدخول الرئيسية (Init)
+           ===================================================================== */
+
+        /* =====================================================================
+           1) CONFIG
+           ===================================================================== */
+        const CONFIG = {
+            // ضع مفتاح الذكاء الاصطناعي هنا إذا أردت تضمينه مباشرة (غير مستحسن للنشر العام).
+            // الطريقة الأفضل: زر ⚙️ الإعدادات داخل التطبيق يحفظ المفتاح في localStorage فقط.
+            AI_API_KEY: "",
+            // أي endpoint متوافق مع صيغة OpenAI Chat Completions (يدعم OpenAI / OpenRouter / Groq / نماذج محلية متوافقة...)
+            AI_API_ENDPOINT: "https://api.openai.com/v1/chat/completions",
+            AI_MODEL: "gpt-4o-mini",
+
+            // رابط قاعدة الـ Cloudflare Worker المسؤول عن جلب صفحات مسائل Codeforces
+            // (انظر مجلد worker/ في جذر المشروع). كل طلبات نص المسألة تمر حصراً عبر
+            // هذا الـ Worker — لا يوجد أي جلب مباشر لصفحات HTML من Codeforces ولا أي
+            // بروكسي عام (AllOrigins / corsproxy.io / thingproxy...) داخل الواجهة الأمامية.
+            // ضع هنا رابط الـ Worker بعد نشره (wrangler deploy)، مثال:
+            // "https://cf-statement-proxy.YOUR-SUBDOMAIN.workers.dev"
+            // أو رابط النطاق المخصص إن قمت بربطه (routes) في wrangler.toml.
+            WORKER_BASE_URL: "https://cf-statement-proxy.cp-platform.workers.dev",
+
+            PAGE_SIZE: 20,
+        };
+
+        // قائمة تصنيفات Codeforces (كما في الأداة الأصلية بالكامل)
+        const CF_TAGS = [
+            "math", "greedy", "dp", "data structures", "brute force",
+            "constructive algorithms", "graphs", "sortings", "binary search",
+            "dfs and similar", "trees", "strings", "number theory",
+            "combinatorics", "geometry", "bitmasks", "two pointers",
+            "dsu", "shortest paths", "probabilities", "divide and conquer",
+            "hashing", "games", "matrices", "fft", "string suffix structures",
+            "graph matchings", "flows", "interactive"
+        ];
+
+        // درجات التقييم السريعة (Chips) — من 800 حتى 3500 بفارق 100
+        const RATING_STEPS = (() => {
+            const arr = [];
+            for (let r = 800; r <= 3500; r += 100) arr.push(r);
+            return arr;
+        })();
+
+        /* =====================================================================
+           2) Utils — دوال مساعدة عامة
+           ===================================================================== */
+        const Utils = {
+            escapeHtml(str) {
+                if (str === null || str === undefined) return "";
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            },
+
+            debounce(fn, wait) {
+                let t = null;
+                return (...args) => {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn(...args), wait);
+                };
+            },
+
+            problemId(p) {
+                return `${p.contestId}${p.index}`;
+            },
+
+            problemUrl(p) {
+                return `https://codeforces.com/problemset/problem/${p.contestId}/${p.index}`;
+            },
+
+            submitUrl(p) {
+                return `https://codeforces.com/contest/${p.contestId}/submit/${p.index}`;
+            },
+
+            statusUrl(p) {
+                return `https://codeforces.com/problemset/status/${p.contestId}/problem/${p.index}`;
+            },
+
+            // ألوان الصعوبة الحقيقية المستخدمة في Codeforces
+            ratingTier(rating) {
+                if (!rating) return {cls: "tier-gray", label: "غير مصنفة"};
+                if (rating < 1200) return {cls: "tier-gray", label: rating};
+                if (rating < 1400) return {cls: "tier-green", label: rating};
+                if (rating < 1600) return {cls: "tier-cyan", label: rating};
+                if (rating < 1900) return {cls: "tier-blue", label: rating};
+                if (rating < 2100) return {cls: "tier-purple", label: rating};
+                if (rating < 2400) return {cls: "tier-orange", label: rating};
+                return {cls: "tier-red", label: rating};
+            },
+
+            formatTime(totalSeconds) {
+                const m = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+                const s = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
+                return `${m}:${s}`;
+            },
+
+            toast(message, type = "info") {
+                const wrap = document.getElementById("toastWrap");
+                if (!wrap) return;
+                const el = document.createElement("div");
+                el.className = `toast ${type}`;
+                el.textContent = message;
+                wrap.appendChild(el);
+                setTimeout(() => el.remove(), 3200);
+            },
+
+            // بعض روابط صور Codeforces (Avatar) تُعاد بصيغة "Protocol-Relative" مثل "//userpic..."
+            absoluteUrl(url) {
+                if (!url) return "";
+                if (url.startsWith("http")) return url;
+                if (url.startsWith("//")) return "https:" + url;
+                return url;
+            },
+
+            // تحويل ثانية Unix Timestamp إلى نص "منذ كذا" مقروء بالعربية
+            relativeTimeFromSeconds(seconds) {
+                if (!seconds) return "—";
+                return this.relativeTimeFromMs(seconds * 1000);
+            },
+            relativeTimeFromMs(ms) {
+                if (!ms) return "—";
+                const diff = Math.floor((Date.now() - ms) / 1000);
+                if (diff < 60) return "الآن";
+                if (diff < 3600) return `منذ ${Math.floor(diff / 60)} دقيقة`;
+                if (diff < 86400) return `منذ ${Math.floor(diff / 3600)} ساعة`;
+                return `منذ ${Math.floor(diff / 86400)} يوم`;
+            }
+        };
+
+        /* =====================================================================
+           3) StorageManager — كل عمليات الحفظ المحلي (localStorage)
+           يخزن: المسائل المحلولة، المسائل التي تم شرحها (تعليمها)، آخر ترجمة،
+           آخر تحليل من المدرب، آخر شرح للمسألة، إعدادات المستخدم، كاش الذكاء
+           الاصطناعي لكل مسألة، وبيانات حساب Codeforces المرتبط (إن وجد).
+           ===================================================================== */
+        const LS_KEYS = {
+            SOLVED: "cfp_solved_v1",
+            TAUGHT: "cfp_taught_v1",
+            LAST_TRANSLATION: "cfp_last_translation_v1",
+            LAST_EXPLANATION: "cfp_last_explanation_v1",
+            LAST_PROBLEM_EXPLANATION: "cfp_last_problem_explanation_v1",
+            SETTINGS: "cfp_settings_v1",
+            AI_CACHE: "cfp_ai_cache_v1",
+            NOTES: "cfp_training_notes_v1",
+            CF_ACCOUNT: "cfp_cf_account_v1"
+        };
+
+        const StorageManager = {
+            _read(key, fallback) {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (raw === null) return fallback;
+                    return JSON.parse(raw);
+                } catch (e) {
+                    console.error("StorageManager read error:", key, e);
+                    return fallback;
+                }
+            },
+            _write(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                    return true;
+                } catch (e) {
+                    console.error("StorageManager write error:", key, e);
+                    Utils.toast("تعذّر الحفظ محلياً (قد تكون مساحة التخزين ممتلئة)", "error");
+                    return false;
+                }
+            },
+
+            // ---------- المسائل المحلولة ----------
+            // القائمة "الفعلية" المعروضة في كل الواجهة = اتحاد (المسائل الموسومة يدوياً) ∪ (المسائل المؤكدة كمحلولة
+            // فعلياً عبر حساب Codeforces المرتبط، إن وُجد). بهذا التصميم يستفيد كل كود العرض/الفلترة الحالي تلقائياً
+            // من ربط الحساب دون أي تعديل إضافي في أماكن أخرى من التطبيق.
+            getManualSolvedSet() {
+                return new Set(this._read(LS_KEYS.SOLVED, []));
+            },
+            getCfSolvedSet() {
+                const account = this.getCfAccount();
+                return new Set(account && Array.isArray(account.solvedIds) ? account.solvedIds : []);
+            },
+            isCfVerifiedSolved(id) {
+                return this.getCfSolvedSet().has(id);
+            },
+            getSolvedSet() {
+                const merged = this.getManualSolvedSet();
+                this.getCfSolvedSet().forEach(id => merged.add(id));
+                return merged;
+            },
+            isSolved(id) {
+                return this.getSolvedSet().has(id);
+            },
+            toggleSolved(id) {
+                // المسائل المؤكدة عبر حساب Codeforces لا يمكن "إلغاء" وسمها يدوياً، لأنها حقيقة واقعة من حسابك
+                if (this.isCfVerifiedSolved(id)) {
+                    Utils.toast("هذه المسألة محلولة تلقائياً حسب حساب Codeforces المرتبط، ولا يمكن إلغاء وسمها يدوياً", "info");
+                    return true;
+                }
+                const set = this.getManualSolvedSet();
+                let nowSolved;
+                if (set.has(id)) {set.delete(id); nowSolved = false;}
+                else {set.add(id); nowSolved = true;}
+                this._write(LS_KEYS.SOLVED, Array.from(set));
+                return nowSolved;
+            },
+
+            // ---------- المسائل التي تم تعليمها (استُخدم معها المدرب) ----------
+            getTaughtSet() {
+                return new Set(this._read(LS_KEYS.TAUGHT, []));
+            },
+            isTaught(id) {
+                return this.getTaughtSet().has(id);
+            },
+            markTaught(id) {
+                const set = this.getTaughtSet();
+                set.add(id);
+                this._write(LS_KEYS.TAUGHT, Array.from(set));
+            },
+
+            // ---------- إعدادات المستخدم (مفتاح AI، إلخ) ----------
+            getSettings() {
+                return this._read(LS_KEYS.SETTINGS, {aiApiKey: "", aiEndpoint: "", aiModel: ""});
+            },
+            saveSettings(obj) {
+                this._write(LS_KEYS.SETTINGS, obj);
+            },
+
+            // ---------- آخر ترجمة / آخر شرح (لاستكمال آخر جلسة) ----------
+            setLastTranslation(id, name, text) {
+                this._write(LS_KEYS.LAST_TRANSLATION, {id, name, text, at: Date.now()});
+            },
+            getLastTranslation() {
+                return this._read(LS_KEYS.LAST_TRANSLATION, null);
+            },
+            setLastExplanation(id, name, data) {
+                this._write(LS_KEYS.LAST_EXPLANATION, {id, name, data, at: Date.now()});
+            },
+            getLastExplanation() {
+                return this._read(LS_KEYS.LAST_EXPLANATION, null);
+            },
+            // آخر "شرح مسألة" (Problem Explanation) — منفصل تماماً عن تحليل المدرب أعلاه لتفادي أي تداخل
+            setLastProblemExplanation(id, name, data) {
+                this._write(LS_KEYS.LAST_PROBLEM_EXPLANATION, {id, name, data, at: Date.now()});
+            },
+            getLastProblemExplanation() {
+                return this._read(LS_KEYS.LAST_PROBLEM_EXPLANATION, null);
+            },
+
+            // ---------- حساب Codeforces الشخصي المرتبط ----------
+            getCfAccount() {
+                return this._read(LS_KEYS.CF_ACCOUNT, null);
+            },
+            setCfAccount(data) {
+                this._write(LS_KEYS.CF_ACCOUNT, data);
+            },
+            clearCfAccount() {
+                this._write(LS_KEYS.CF_ACCOUNT, null);
+            },
+
+            // ---------- كاش الذكاء الاصطناعي لكل مسألة (لتفادي تكرار الطلبات) ----------
+            getAllAICache() {
+                return this._read(LS_KEYS.AI_CACHE, {});
+            },
+            getAICacheEntry(id) {
+                const all = this.getAllAICache();
+                return all[id] || null;
+            },
+            setAICacheEntry(id, partial) {
+                const all = this.getAllAICache();
+                all[id] = Object.assign({}, all[id] || {}, partial, {cachedAt: Date.now()});
+                this._write(LS_KEYS.AI_CACHE, all);
+                return all[id];
+            },
+
+            // ---------- ملاحظات وضع التدريب ----------
+            getNote(id) {
+                const all = this._read(LS_KEYS.NOTES, {});
+                return all[id] || "";
+            },
+            setNote(id, text) {
+                const all = this._read(LS_KEYS.NOTES, {});
+                all[id] = text;
+                this._write(LS_KEYS.NOTES, all);
+            }
+        };
+
+        /* =====================================================================
+           4) CFApi — التعامل مع Codeforces API العام (جلب كل المسائل)
+           ===================================================================== */
+        const CFApi = {
+            async fetchAllProblems() {
+                const response = await fetch("https://codeforces.com/api/problemset.problems");
+                if (!response.ok) throw new Error(`HTTP_${response.status}`);
+                const data = await response.json();
+                if (data.status !== "OK") throw new Error("CF_API_STATUS_NOT_OK");
+                return data.result.problems;
+            }
+        };
+
+        /* =====================================================================
+           5) CFAccount — ربط حساب Codeforces الشخصي بالمستخدم
+           ---------------------------------------------------------------------
+           يجلب بيانات البروفايل (Rating/Rank/Contribution/Avatar...) وكل
+           الإرساليات (Submissions) الخاصة بالمستخدم لتحديد المسائل التي حلّها
+           فعلياً على Codeforces، ويغذّي وحدة Dashboard بإحصاءات التقدّم
+           والمسائل المقترحة القادمة. نقاط Codeforces العامة (api.codeforces.com)
+           ترسل ترويسات CORS صحيحة، لذلك يعمل الجلب مباشرة من المتصفح تماماً
+           كما هو الحال في CFApi.fetchAllProblems أعلاه، دون الحاجة لأي Proxy.
+           ===================================================================== */
+        const CFAccount = {
+            data: null, // { handle, profile:{...}, solvedIds:[...], submissionsCount, lastSyncedAt } أو null إن لم يُربط شيء
+
+            // تحميل بيانات الحساب المحفوظة محلياً (يُستدعى مرة عند بدء التطبيق)
+            load() {
+                this.data = StorageManager.getCfAccount();
+                return this.data;
+            },
+
+            isConnected() {
+                return !!(this.data && this.data.handle);
+            },
+
+            getSolvedIdSet() {
+                if (!this.data || !Array.isArray(this.data.solvedIds)) return new Set();
+                return new Set(this.data.solvedIds);
+            },
+
+            // ربط حساب جديد لأول مرة
+            async connect(handle) {
+                handle = (handle || "").trim();
+                if (!handle) throw new Error("EMPTY_HANDLE");
+                await this._syncHandle(handle);
+            },
+
+            // إعادة جلب أحدث البيانات لنفس الحساب المرتبط حالياً (زر "تحديث التقدم")
+            async refresh() {
+                if (!this.data || !this.data.handle) throw new Error("NOT_CONNECTED");
+                await this._syncHandle(this.data.handle);
+            },
+
+            disconnect() {
+                this.data = null;
+                StorageManager.clearCfAccount();
+            },
+
+            async _syncHandle(handle) {
+                const profile = await this._fetchUserInfo(handle);
+                const {solvedIds, submissionsCount} = await this._fetchUserSubmissions(handle);
+                this.data = {
+                    handle: profile.handle, // الاعتماد على الـ handle الرسمي المُعاد من الـ API (يصحح حالة الأحرف تلقائياً)
+                    profile,
+                    solvedIds,
+                    submissionsCount,
+                    lastSyncedAt: Date.now()
+                };
+                StorageManager.setCfAccount(this.data);
+            },
+
+            async _fetchUserInfo(handle) {
+                let response;
+                try {
+                    response = await fetch(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(handle)}`);
+                } catch (e) {
+                    throw new Error("NETWORK_ERROR");
+                }
+                if (!response.ok) throw new Error(`HTTP_${response.status}`);
+                const json = await response.json();
+                if (json.status !== "OK" || !json.result || !json.result[0]) throw new Error("CF_USER_NOT_FOUND");
+                return json.result[0];
+            },
+
+            async _fetchUserSubmissions(handle) {
+                let response;
+                try {
+                    response = await fetch(`https://codeforces.com/api/user.status?handle=${encodeURIComponent(handle)}`);
+                } catch (e) {
+                    throw new Error("NETWORK_ERROR");
+                }
+                if (!response.ok) throw new Error(`HTTP_${response.status}`);
+                const json = await response.json();
+                if (json.status !== "OK") throw new Error("CF_STATUS_NOT_OK");
+                const submissions = json.result || [];
+                const solved = new Set();
+                submissions.forEach(sub => {
+                    if (sub.verdict === "OK" && sub.problem && sub.problem.contestId !== undefined && sub.problem.index) {
+                        solved.add(`${sub.problem.contestId}${sub.problem.index}`);
+                    }
+                });
+                return {solvedIds: Array.from(solved), submissionsCount: submissions.length};
+            },
+
+            // ---------- إحصاءات لوحة التحكم: محلولة/غير محلولة، توزيع حسب Rating و Tag ----------
+            buildStats() {
+                const solvedSet = this.getSolvedIdSet();
+                const total = allProblems.length;
+                let solvedCount = 0;
+                const byRating = {};
+                const byTag = {};
+
+                allProblems.forEach(p => {
+                    const id = Utils.problemId(p);
+                    if (!solvedSet.has(id)) return;
+                    solvedCount++;
+                    if (p.rating) byRating[p.rating] = (byRating[p.rating] || 0) + 1;
+                    (p.tags || []).forEach(t => {byTag[t] = (byTag[t] || 0) + 1;});
+                });
+
+                const unsolvedCount = Math.max(0, total - solvedCount);
+                const completionPct = total > 0 ? (solvedCount / total * 100) : 0;
+                return {solvedCount, unsolvedCount, total, completionPct, byRating, byTag};
+            },
+
+            // ---------- اقتراح المسائل القادمة المناسبة بناءً على التقدّم والـ Rating الحالي ----------
+            recommendNext(limit = 10) {
+                const solvedSet = this.getSolvedIdSet();
+                const profile = this.data ? this.data.profile : null;
+                const currentRating = (profile && profile.rating) ? profile.rating : 1200; // افتراضي معقول لمن لا يملك Rating بعد
+
+                let minR = currentRating, maxR = currentRating + 200;
+                let pool = [];
+                let attempts = 0;
+                while (pool.length < limit && attempts < 8) {
+                    pool = allProblems.filter(p => {
+                        if (!p.rating) return false;
+                        if (solvedSet.has(Utils.problemId(p))) return false;
+                        return p.rating >= minR && p.rating <= maxR;
+                    });
+                    if (pool.length < limit) {minR = Math.max(800, minR - 100); maxR += 200;}
+                    attempts++;
+                }
+                pool.sort((a, b) => a.rating - b.rating);
+
+                // تنويع بسيط حسب أول Tag لتفادي اقتراح نفس نوع المسائل بكثرة
+                const picked = [];
+                const tagUsage = {};
+                pool.forEach(p => {
+                    if (picked.length >= limit) return;
+                    const primaryTag = (p.tags && p.tags[0]) || "misc";
+                    tagUsage[primaryTag] = tagUsage[primaryTag] || 0;
+                    if (tagUsage[primaryTag] >= 3) return;
+                    tagUsage[primaryTag]++;
+                    picked.push(p);
+                });
+                // إكمال العدد المطلوب دون قيد التنويع إن لم يكتمل بعد
+                if (picked.length < limit) {
+                    pool.forEach(p => {
+                        if (picked.length >= limit) return;
+                        if (!picked.includes(p)) picked.push(p);
+                    });
+                }
+                return picked.slice(0, limit);
+            }
+        };
+
+        /* =====================================================================
+           6) StatementFetcher — جلب/تحليل/تنظيف نص المسألة الأصلي من Codeforces
+           ---------------------------------------------------------------------
+           جلب صفحة HTML الخاصة بالمسألة يتم حصراً عبر الـ Cloudflare Worker
+           المعرّف في CONFIG.WORKER_BASE_URL (المصدر: مجلد worker/ في جذر المشروع).
+           الـ Worker هو من يتولى الاتصال الفعلي بـ Codeforces (fetch + retries +
+           timeout + caching)، بينما هذه الوحدة في المتصفح تتعامل فقط مع تحليل
+           وتنظيف الـ HTML المُعاد. لا يوجد هنا أي جلب مباشر لصفحات Codeforces ولا
+           أي بروكسي عام (AllOrigins وغيره) — تلك الطبقة أُزيلت بالكامل.
+           ===================================================================== */
+        const StatementFetcher = {
+
+            // الخطوة 1: جلب HTML الخام لصفحة المسألة عبر الـ Cloudflare Worker الإنتاجي
+            // (GET {WORKER_BASE_URL}/api/problem/:contestId/:index)
+            // الـ Worker يتولى: إعادة المحاولة عند الفشل، الـ timeout، اتباع الـ redirects،
+            // الكاش على حافة Cloudflare، وترويسات CORS. لا يوجد هنا أي رابط Codeforces
+            // مبني يدوياً ولا أي بروكسي عام — رابط القاعدة الوحيد المستخدم هو
+            // CONFIG.WORKER_BASE_URL.
+            async fetchRawHtml(problem) {
+                if (!CONFIG.WORKER_BASE_URL) {
+                    throw new Error("WORKER_NOT_CONFIGURED");
+                }
+
+                const endpoint = `${CONFIG.WORKER_BASE_URL}/api/problem/${encodeURIComponent(problem.contestId)}/${encodeURIComponent(problem.index)}`;
+
+                let res;
+                try {
+                    res = await fetch(endpoint, {mode: "cors"});
+                } catch (e) {
+                    throw new Error("WORKER_NETWORK_ERROR");
+                }
+
+                if (!res.ok) {
+                    // الـ Worker يعيد أخطاء بصيغة JSON موحّدة: { success:false, error:{ code, message } }
+                    let code = `HTTP_${res.status}`;
+                    try {
+                        const body = await res.json();
+                        if (body && body.error && body.error.code) code = body.error.code;
+                    } catch (e) { /* استجابة غير JSON — استخدم كود الحالة كما هو */}
+                    throw new Error(code);
+                }
+
+                return await res.text();
+            },
+
+            // الخطوة 2: تحليل الـ HTML واستخراج أقسام المسألة المنظمة
+            parseStatementHtml(rawHtml) {
+                const doc = new DOMParser().parseFromString(rawHtml, "text/html");
+                const root = doc.querySelector(".problem-statement");
+                if (!root) throw new Error("STATEMENT_NOT_FOUND");
+
+                const clean = (node) => node ? this.sanitizeHtml(node) : "";
+                const textOf = (node) => node ? node.textContent.trim() : "";
+
+                const header = root.querySelector(".header");
+                const title = textOf(header ? header.querySelector(".title") : null);
+                const timeLimit = textOf(header ? header.querySelector(".time-limit") : null).replace(/^time limit per test/i, "").trim();
+                const memoryLimit = textOf(header ? header.querySelector(".memory-limit") : null).replace(/^memory limit per test/i, "").trim();
+                const inputFile = textOf(header ? header.querySelector(".input-file") : null).replace(/^input/i, "").trim();
+                const outputFile = textOf(header ? header.querySelector(".output-file") : null).replace(/^output/i, "").trim();
+
+                // النص الرئيسي للمسألة: كل الـ divs المباشرة بعد header وقبل input-specification
+                let bodyHtml = "";
+                let node = header ? header.nextElementSibling : root.firstElementChild;
+                while (node && !node.classList.contains("input-specification")
+                    && !node.classList.contains("output-specification")
+                    && !node.classList.contains("sample-tests")
+                    && !node.classList.contains("note")) {
+                    bodyHtml += clean(node);
+                    node = node.nextElementSibling;
+                }
+
+                const inputSpec = root.querySelector(".input-specification");
+                const outputSpec = root.querySelector(".output-specification");
+                const noteEl = root.querySelector(".note");
+
+                const inputSpecHtml = inputSpec ? clean(this.stripSectionTitle(inputSpec)) : "";
+                const outputSpecHtml = outputSpec ? clean(this.stripSectionTitle(outputSpec)) : "";
+                const noteHtml = noteEl ? clean(this.stripSectionTitle(noteEl)) : "";
+
+                // الأمثلة (Sample Tests)
+                const samples = [];
+                root.querySelectorAll(".sample-tests .sample-test").forEach(sampleEl => {
+                    const inputPre = sampleEl.querySelector(".input pre");
+                    const outputPre = sampleEl.querySelector(".output pre");
+                    samples.push({
+                        input: inputPre ? inputPre.textContent : "",
+                        output: outputPre ? outputPre.textContent : ""
+                    });
+                });
+
+                return {
+                    title, timeLimit, memoryLimit, inputFile, outputFile,
+                    bodyHtml, inputSpecHtml, outputSpecHtml, noteHtml, samples
+                };
+            },
+
+            stripSectionTitle(el) {
+                const clone = el.cloneNode(true);
+                const t = clone.querySelector(".section-title");
+                if (t) t.remove();
+                return clone;
+            },
+
+            // تنظيف HTML: السماح بوسوم آمنة فقط (Whitelist) وإزالة أي سكريبت/أحداث
+            sanitizeHtml(node) {
+                const ALLOWED_TAGS = new Set(["P", "DIV", "SPAN", "B", "I", "U", "SUP", "SUB", "UL", "OL", "LI", "BR", "PRE", "CODE", "TABLE", "THEAD", "TBODY", "TR", "TD", "TH", "IMG", "A", "STRONG", "EM"]);
+                const clone = node.cloneNode(true);
+
+                const walk = (el) => {
+                    Array.from(el.children).forEach(child => {
+                        if (!ALLOWED_TAGS.has(child.tagName)) {
+                            // استبدل العنصر غير المسموح بمحتواه النصي فقط
+                            const textNode = document.createTextNode(child.textContent);
+                            child.replaceWith(textNode);
+                            return;
+                        }
+                        // أزل كل الخصائص إلا src/href الآمنة
+                        Array.from(child.attributes).forEach(attr => {
+                            const name = attr.name.toLowerCase();
+                            if (name.startsWith("on")) {child.removeAttribute(attr.name); return;}
+                            if (name === "src" && child.tagName === "IMG") {
+                                // اجعل روابط الصور مطلقة (Codeforces تستخدم مسارات نسبية أحياناً)
+                                let val = attr.value;
+                                if (val.startsWith("/")) val = "https://codeforces.com" + val;
+                                child.setAttribute("src", val);
+                                return;
+                            }
+                            if (name === "href" && child.tagName === "A") {
+                                if (!/^https?:\/\//i.test(attr.value)) child.removeAttribute("href");
+                                else child.setAttribute("target", "_blank");
+                                return;
+                            }
+                            child.removeAttribute(attr.name);
+                        });
+                        walk(child);
+                    });
+                };
+                walk(clone);
+                return clone.innerHTML;
+            },
+
+            // تحويل الأقسام المُحلّلة إلى نص عادي منظم (يُستخدم كمُدخل لطلبات الذكاء الاصطناعي)
+            toPlainText(parsed) {
+                const stripTags = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+                let out = "";
+                out += `Title: ${parsed.title}\n`;
+                if (parsed.timeLimit) out += `Time limit: ${parsed.timeLimit}\n`;
+                if (parsed.memoryLimit) out += `Memory limit: ${parsed.memoryLimit}\n\n`;
+                out += stripTags(parsed.bodyHtml) + "\n\n";
+                if (parsed.inputSpecHtml) out += "Input\n" + stripTags(parsed.inputSpecHtml) + "\n\n";
+                if (parsed.outputSpecHtml) out += "Output\n" + stripTags(parsed.outputSpecHtml) + "\n\n";
+                parsed.samples.forEach((s, i) => {
+                    out += `Example ${i + 1} Input:\n${s.input}\nExample ${i + 1} Output:\n${s.output}\n\n`;
+                });
+                if (parsed.noteHtml) out += "Note\n" + stripTags(parsed.noteHtml) + "\n";
+                return out.trim();
+            },
+
+            // نقطة الدخول الرئيسية: جلب + تحليل + كاش
+            async getStatement(problem) {
+                const id = Utils.problemId(problem);
+                const cached = StorageManager.getAICacheEntry(id);
+                if (cached && cached.statementParsed) return cached.statementParsed;
+
+                const rawHtml = await this.fetchRawHtml(problem);
+                const parsed = this.parseStatementHtml(rawHtml);
+                StorageManager.setAICacheEntry(id, {statementParsed: parsed});
+                return parsed;
+            }
+        };
+
+        /* =====================================================================
+           7) AIEngine — التكامل مع نموذج الذكاء الاصطناعي
+           ---------------------------------------------------------------------
+           يستخدم صيغة OpenAI Chat Completions (متوافقة أيضاً مع OpenRouter/Groq
+           وأي endpoint متوافق). لاستخدام Anthropic Claude API مباشرة، عدّل دالة
+           callAI فقط (شكل الـ body والاستجابة مختلف قليلاً) — بقية التطبيق لن
+           يتأثر لأنه يتعامل فقط مع النص النهائي المُعاد من هذه الدالة.
+           ===================================================================== */
+        const AIEngine = {
+
+            getActiveConfig() {
+                const s = StorageManager.getSettings();
+                return {
+                    apiKey: s.aiApiKey || CONFIG.AI_API_KEY,
+                    endpoint: s.aiEndpoint || CONFIG.AI_API_ENDPOINT,
+                    model: s.aiModel || CONFIG.AI_MODEL
+                };
+            },
+
+            hasApiKey() {
+                return !!this.getActiveConfig().apiKey;
+            },
+
+            async callAI(systemPrompt, userPrompt) {
+                const {apiKey, endpoint, model} = this.getActiveConfig();
+                if (!apiKey) {
+                    const err = new Error("NO_API_KEY");
+                    err.code = "NO_API_KEY";
+                    throw err;
+                }
+
+                let response;
+                try {
+                    response = await fetch(endpoint, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model,
+                            temperature: 0.3,
+                            messages: [
+                                {role: "system", content: systemPrompt},
+                                {role: "user", content: userPrompt}
+                            ]
+                        })
+                    });
+                } catch (e) {
+                    const err = new Error("NETWORK_ERROR");
+                    err.code = "NETWORK_ERROR";
+                    throw err;
+                }
+
+                if (!response.ok) {
+                    const err = new Error(`AI_HTTP_${response.status}`);
+                    err.code = "HTTP_ERROR";
+                    err.status = response.status;
+                    throw err;
+                }
+
+                const data = await response.json();
+                const content = data && data.choices && data.choices[0] && data.choices[0].message
+                    ? data.choices[0].message.content
+                    : "";
+                if (!content) {
+                    const err = new Error("EMPTY_RESPONSE");
+                    err.code = "EMPTY_RESPONSE";
+                    throw err;
+                }
+                return content.trim();
+            },
+
+            // ---------- الترجمة العربية ----------
+            async translate(problem, statementPlainText) {
+                const id = Utils.problemId(problem);
+                const cached = StorageManager.getAICacheEntry(id);
+                if (cached && cached.translation) return cached.translation;
+
+                const systemPrompt =
+                    `Translate this competitive programming problem into Arabic.
+
+Rules:
+- Keep mathematical notation unchanged.
+- Keep Input and Output format unchanged.
+- Keep examples unchanged.
+- Translate algorithmic concepts naturally.
+- Make the translation understandable for competitive programmers.
+Respond with the translated statement only, no extra commentary.`;
+
+                const result = await this.callAI(systemPrompt, statementPlainText);
+                StorageManager.setAICacheEntry(id, {translation: result});
+                StorageManager.setLastTranslation(id, problem.name, result);
+                return result;
+            },
+
+            // ---------- تحليل المدرب (Coach) ----------
+            async coach(problem, statementPlainText) {
+                const id = Utils.problemId(problem);
+                const cached = StorageManager.getAICacheEntry(id);
+                if (cached && cached.coach) return cached.coach;
+
+                const systemPrompt =
+                    `Act as a Codeforces expert coach.
+
+Analyze this problem.
+
+Give:
+1. Core observation.
+2. Algorithm idea.
+3. Complexity.
+4. Progressive hints (exactly 3 hints: hint 1 is a small nudge, hint 2 is a stronger direction, hint 3 is almost the full idea but still not code).
+
+Do not provide the full solution or any code.
+
+Respond ONLY with valid minified JSON (no markdown fences, no commentary) in exactly this shape:
+{"observation":"...","algorithm":"...","complexity":"...","hints":["hint1 text","hint2 text","hint3 text"]}`;
+
+                const raw = await this.callAI(systemPrompt, statementPlainText);
+                const parsed = this.parseCoachJson(raw);
+                StorageManager.setAICacheEntry(id, {coach: parsed});
+                StorageManager.markTaught(id);
+                StorageManager.setLastExplanation(id, problem.name, parsed);
+                return parsed;
+            },
+
+            parseCoachJson(raw) {
+                let text = raw.trim();
+                // احتياطاً: إزالة أي أسوار Markdown لو وضعها النموذج رغم التعليمات
+                text = text.replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+                try {
+                    const obj = JSON.parse(text);
+                    return {
+                        observation: obj.observation || "",
+                        algorithm: obj.algorithm || "",
+                        complexity: obj.complexity || "",
+                        hints: Array.isArray(obj.hints) ? obj.hints.slice(0, 3) : []
+                    };
+                } catch (e) {
+                    // في حال فشل الاستجابة كـ JSON صالح، اعرض النص الخام كملاحظة أساسية
+                    return {observation: raw, algorithm: "", complexity: "", hints: []};
+                }
+            },
+
+            // ---------- شرح المسألة (Problem Explanation) ----------
+            // يشرح صياغة المسألة فقط (المطلوب، المدخلات، المخرجات، الأمثلة، القيود، المصطلحات الغامضة)
+            // دون إعطاء أي فكرة حل أو خوارزمية أو Data Structure أو تعقيد زمني أو أي تلميح من أي نوع.
+            async explainProblem(problem, statementPlainText) {
+                const id = Utils.problemId(problem);
+                const cached = StorageManager.getAICacheEntry(id);
+                if (cached && cached.problemExplanation) return cached.problemExplanation;
+
+                const systemPrompt =
+                    `You help competitive programmers understand a Codeforces problem statement, WITHOUT revealing anything about how to solve it.
+
+Your ONLY job is to explain the problem itself, in Arabic, so a complete beginner can fully understand what is being asked.
+
+STRICTLY FORBIDDEN — you must NEVER, under any circumstance:
+- Suggest, name, or hint at any algorithm or solving approach.
+- Mention any data structure.
+- Mention time complexity, space complexity, or Big-O of any kind.
+- Give any hint, however small or indirect, about how to solve the problem.
+- Write, describe, or imply any solution steps, pseudocode, or code.
+
+You MUST cover, entirely in Arabic:
+1. ماذا تطلب المسألة بالضبط من المستخدم أن يفعل.
+2. ما الهدف النهائي الذي يجب الوصول إليه.
+3. شرح واضح لكل مدخل (Input).
+4. شرح واضح لكل مخرج (Output) المطلوب طباعته.
+5. شرح كل Example خطوة بخطوة: وضّح ماذا يمثل كل رقم/قيمة في المدخل والمخرج، ولماذا هذا المخرج هو المطابق لهذا المدخل بحسب نص المسألة نفسه فقط — دون أي إشارة لخوارزمية أو طريقة حل.
+6. شرح أي مصطلح تقني أو صياغة قد تكون غامضة على المبتدئ.
+7. توضيح القيود (Constraints) إن وُجدت وماذا تعنيها عملياً (مثل الحدود القصوى للمدخلات).
+8. إعادة صياغة المسألة كاملة بأسلوب مبسّط وسهل للمبتدئين.
+
+Respond ONLY with valid minified JSON (no markdown fences, no commentary) in exactly this shape:
+{"whatIsAsked":"...","finalGoal":"...","inputExplanation":"...","outputExplanation":"...","examples":[{"title":"...","explanation":"..."}],"glossary":[{"term":"...","meaning":"..."}],"constraintsExplanation":"...","simplifiedSummary":"..."}
+
+Rules for the JSON:
+- Every text value must be written in Arabic.
+- Include one entry in "examples" for every sample test given in the problem, in order.
+- If there are no ambiguous terms, return an empty array for "glossary".
+- If there is no explicit constraints section, return an empty string for "constraintsExplanation".
+- Never include the words "algorithm", "complexity", "hint", or any solving strategy anywhere in the JSON values.`;
+
+                const raw = await this.callAI(systemPrompt, statementPlainText);
+                const parsed = this.parseExplanationJson(raw);
+                StorageManager.setAICacheEntry(id, {problemExplanation: parsed});
+                StorageManager.setLastProblemExplanation(id, problem.name, parsed);
+                return parsed;
+            },
+
+            parseExplanationJson(raw) {
+                let text = raw.trim();
+                text = text.replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+                try {
+                    const obj = JSON.parse(text);
+                    return {
+                        whatIsAsked: obj.whatIsAsked || "",
+                        finalGoal: obj.finalGoal || "",
+                        inputExplanation: obj.inputExplanation || "",
+                        outputExplanation: obj.outputExplanation || "",
+                        examples: Array.isArray(obj.examples) ? obj.examples.map(e => ({title: e.title || "", explanation: e.explanation || ""})) : [],
+                        glossary: Array.isArray(obj.glossary) ? obj.glossary.map(g => ({term: g.term || "", meaning: g.meaning || ""})) : [],
+                        constraintsExplanation: obj.constraintsExplanation || "",
+                        simplifiedSummary: obj.simplifiedSummary || ""
+                    };
+                } catch (e) {
+                    // في حال فشل الاستجابة كـ JSON صالح، اعرض النص الخام كشرح عام بدلاً من كسر الواجهة
+                    return {whatIsAsked: raw, finalGoal: "", inputExplanation: "", outputExplanation: "", examples: [], glossary: [], constraintsExplanation: "", simplifiedSummary: ""};
+                }
+            },
+
+            // ---------- حل كامل (كود) — فقط بطلب صريح ومؤكد من المستخدم ----------
+            async fullSolution(problem, statementPlainText, language) {
+                const systemPrompt =
+                    `Act as a Codeforces expert. The user explicitly requested the full solution after
+already seeing hints. Provide a correct, efficient solution in ${language || "C++"}
+with a brief explanation of the approach and its complexity. Code should be clean
+and competitive-programming style.`;
+                // لا يتم تخزين هذا في الكاش تلقائياً (المستخدم قد يطلبه بلغات مختلفة كل مرة)
+                return await this.callAI(systemPrompt, statementPlainText);
+            }
+        };
+
+        /* =====================================================================
+           8) AIProgress — مكوّن موحّد وقابل لإعادة الاستخدام لعرض تقدّم استدعاءات
+           الذكاء الاصطناعي (Spinner + Progress Bar + نسبة مئوية + رسالة المرحلة).
+           ---------------------------------------------------------------------
+           الاستخدام:
+             const progress = AIProgress.start(containerEl, { label: "..." });
+             progress.setStage("نص مرحلة مخصص");  // اختياري
+             progress.finish();                     // عند النجاح
+             progress.error(err, () => retryFn());  // عند الفشل + زر إعادة المحاولة
+        
+           الشريط يتحرك تدريجياً عبر مراحل واقعية، ولا يتوقف/يتجمّد أبداً حتى في
+           الطلبات الطويلة: بعد آخر مرحلة معروفة يستمر بالاقتراب من 92% تدريجياً
+           (Ease-out) مع تأثير Shimmer بصري مستمر، إلى أن يتم استدعاء finish()
+           فيقفز فوراً إلى 100%. هذا المكوّن مستقل تماماً عن أي Feature معينة،
+           لذلك يصلح للترجمة العربية، شرح المسألة، المدرب، وأي ميزة AI مستقبلية.
+           ===================================================================== */
+        const AIProgress = {
+            STAGES: [
+                "⏳ جاري تجهيز الطلب...",
+                "📖 جاري قراءة نص المسألة...",
+                "📡 جاري إرسال الطلب إلى الذكاء الاصطناعي...",
+                "🤔 الذكاء الاصطناعي يفكر الآن...",
+                "✍️ جاري إنشاء الرد...",
+                "🧩 جاري تنسيق المخرجات..."
+            ],
+            SECONDS_PER_STAGE: 1.1,
+            PROGRESS_CAP: 92, // لا يتجاوز الشريط هذه النسبة أبداً قبل استدعاء finish() الفعلي
+
+            // ابدأ عرض شريط تقدّم احترافي داخل عنصر الحاوية المحدد، ويُعيد كائن تحكّم (Controller)
+            start(container, opts) {
+                if (!container) return this._nullController();
+                opts = opts || {};
+                const uid = "aip" + Math.random().toString(36).slice(2, 9);
+                container.innerHTML = this._buildLoadingHtml(uid, opts.label);
+
+                const state = {pct: 0, stageIndex: 0, done: false, startedAt: Date.now(), intervalId: null};
+
+                const fillEl = () => container.querySelector(`#${uid}-fill`);
+                const pctEl = () => container.querySelector(`#${uid}-pct`);
+                const stageEl = () => container.querySelector(`#${uid}-stage`);
+
+                const applyStage = (index) => {
+                    const el = stageEl();
+                    if (el) el.textContent = this.STAGES[Math.min(index, this.STAGES.length - 1)];
+                };
+                applyStage(0);
+
+                const tick = () => {
+                    if (state.done) return;
+                    const elapsedSeconds = (Date.now() - state.startedAt) / 1000;
+                    const targetStage = Math.min(this.STAGES.length - 1, Math.floor(elapsedSeconds / this.SECONDS_PER_STAGE));
+                    if (targetStage > state.stageIndex) {state.stageIndex = targetStage; applyStage(state.stageIndex);}
+
+                    if (state.pct < this.PROGRESS_CAP) {
+                        const remain = this.PROGRESS_CAP - state.pct;
+                        state.pct = Math.min(this.PROGRESS_CAP, state.pct + Math.max(0.4, remain * 0.06));
+                    }
+                    const f = fillEl(), p = pctEl();
+                    if (f) f.style.width = state.pct.toFixed(0) + "%";
+                    if (p) p.textContent = state.pct.toFixed(0) + "%";
+                };
+                state.intervalId = setInterval(tick, 350);
+                tick();
+
+                return {
+                    // فرض نص مرحلة مخصص (مفيد عند معرفة المرحلة الفعلية بدقة من الكود المستدعي)
+                    setStage(text) {
+                        const el = stageEl();
+                        if (el) el.textContent = text;
+                    },
+                    // إنهاء ناجح: يقفز الشريط فوراً إلى 100%
+                    finish() {
+                        if (state.done) return;
+                        state.done = true;
+                        clearInterval(state.intervalId);
+                        const f = fillEl(), p = pctEl(), s = stageEl();
+                        if (f) f.style.width = "100%";
+                        if (p) p.textContent = "100%";
+                        if (s) s.textContent = "✅ تم";
+                    },
+                    // إنهاء بالفشل: يستبدل الحاوية ببطاقة خطأ احترافية مع زر إعادة المحاولة
+                    error(err, onRetry) {
+                        if (state.done) return;
+                        state.done = true;
+                        clearInterval(state.intervalId);
+                        container.innerHTML = AIProgress._buildErrorHtml(err);
+                        const retryBtn = container.querySelector(".ai-progress-retry-btn");
+                        if (retryBtn && typeof onRetry === "function") retryBtn.onclick = onRetry;
+                    },
+                    // إيقاف بدون لمس الحاوية (تُستخدم عند تجاوز/استبدال المحتوى من مكان آخر)
+                    destroy() {
+                        state.done = true;
+                        clearInterval(state.intervalId);
+                    }
+                };
+            },
+
+            _nullController() {
+                return {setStage() { }, finish() { }, error() { }, destroy() { } };
+            },
+
+            _buildLoadingHtml(uid, label) {
+                return `
+            <div class="ai-progress-card">
+                <div class="ai-progress-top">
+                    <div class="spinner"></div>
+                    <div class="ai-progress-text">
+                        <div class="ai-progress-label">${label ? Utils.escapeHtml(label) : "جاري المعالجة بواسطة الذكاء الاصطناعي"}</div>
+                        <div class="ai-progress-stage" id="${uid}-stage">جاري التجهيز...</div>
+                    </div>
+                    <div class="ai-progress-pct" id="${uid}-pct">0%</div>
+                </div>
+                <div class="ai-progress-bar-track">
+                    <div class="ai-progress-bar-fill" id="${uid}-fill" style="width:0%;"></div>
+                </div>
+            </div>`;
+            },
+
+            // بطاقة خطأ احترافية موحّدة: تدعم أخطاء AIEngine (عبر err.code) وأي خطأ عام آخر (عبر err.customMessage)
+            _buildErrorHtml(err) {
+                const code = err && err.code;
+                let msg = (err && err.customMessage) || null;
+                if (!msg) {
+                    if (code === "NO_API_KEY") msg = "لا يوجد مفتاح API مضاف بعد. أضف مفتاحك من الإعدادات ⚙️ للمتابعة.";
+                    else if (code === "NETWORK_ERROR") msg = "تعذّر الاتصال بالخدمة. تحقق من اتصالك بالإنترنت أو من رابط الـ Endpoint في الإعدادات.";
+                    else if (code === "HTTP_ERROR") msg = `فشل الطلب (HTTP ${err.status}). تحقق من صحة مفتاح API والنموذج المحدد في الإعدادات.`;
+                    else if (code === "EMPTY_RESPONSE") msg = "لم يُرجع النموذج أي محتوى. حاول مرة أخرى.";
+                    else msg = "حدث خطأ غير متوقع أثناء تنفيذ الطلب. حاول مرة أخرى.";
+                }
+                const settingsBtn = code === "NO_API_KEY"
+                    ? `<button class="btn btn-ghost" style="margin-inline-start:8px;" onclick="UI.openSettings()">⚙️ فتح الإعدادات</button>`
+                    : "";
+                return `
+            <div class="ai-error-card">
+                <div class="ai-error-icon">⚠️</div>
+                <div class="ai-error-title">تعذّر إتمام الطلب</div>
+                <div class="ai-error-msg">${Utils.escapeHtml(msg)}</div>
+                <button class="btn btn-primary ai-progress-retry-btn">🔁 إعادة المحاولة</button>${settingsBtn}
+            </div>`;
+            }
+        };
+
+        /* =====================================================================
+           9) SearchEngine — الفلترة الموحّدة (اسم + تقييم + تصنيفات + حالة الحل)
+           مع ترقيم صفحات (Pagination) وعرض كسول (Lazy Rendering) لأن قاعدة بيانات
+           Codeforces تحتوي آلاف المسائل، ولا يصح بناء كل البطاقات دفعة واحدة.
+           ===================================================================== */
+        const SearchEngine = {
+            state: {
+                nameQuery: "",
+                minRating: null,
+                maxRating: null,
+                activeRatingChip: null,
+                selectedTags: new Set(),
+                solvedFilter: "all", // all | solved | unsolved
+                currentPage: 1
+            },
+
+            filtered: [],
+
+            onFiltersChanged: null, // يُهيّأ لاحقاً بنسخة مُهدّأة (debounced) في App.init
+
+            _applyFiltersNow() {
+                const st = this.state;
+                st.nameQuery = document.getElementById("nameInput").value.toLowerCase().trim();
+
+                const solvedSet = StorageManager.getSolvedSet();
+                const tagsArr = Array.from(st.selectedTags);
+
+                this.filtered = allProblems.filter(p => {
+                    if (st.nameQuery && !p.name.toLowerCase().includes(st.nameQuery)) return false;
+
+                    if (st.minRating !== null || st.maxRating !== null) {
+                        const min = st.minRating !== null ? st.minRating : 0;
+                        const max = st.maxRating !== null ? st.maxRating : 5000;
+                        if (p.rating === undefined || p.rating < min || p.rating > max) return false;
+                    }
+
+                    if (tagsArr.length > 0 && !tagsArr.every(t => p.tags.includes(t))) return false;
+
+                    const id = Utils.problemId(p);
+                    if (st.solvedFilter === "solved" && !solvedSet.has(id)) return false;
+                    if (st.solvedFilter === "unsolved" && solvedSet.has(id)) return false;
+
+                    return true;
+                });
+
+                this.filtered.sort((a, b) => {
+                    const ra = a.rating || 0, rb = b.rating || 0;
+                    if (ra !== rb) return ra - rb;
+                    return b.contestId - a.contestId;
+                });
+
+                st.currentPage = 1;
+                UI.renderResults();
+            },
+
+            onRangeInputChanged() {
+                const min = document.getElementById("minRating").value;
+                const max = document.getElementById("maxRating").value;
+                this.state.minRating = min === "" ? null : parseInt(min, 10);
+                this.state.maxRating = max === "" ? null : parseInt(max, 10);
+                this.state.activeRatingChip = null;
+                UI.renderRatingChips();
+                this.onFiltersChanged();
+            },
+
+            toggleRatingChip(rating) {
+                if (this.state.activeRatingChip === rating) {
+                    this.state.activeRatingChip = null;
+                    this.state.minRating = null;
+                    this.state.maxRating = null;
+                } else {
+                    this.state.activeRatingChip = rating;
+                    this.state.minRating = rating;
+                    this.state.maxRating = rating;
+                }
+                document.getElementById("minRating").value = this.state.minRating ?? "";
+                document.getElementById("maxRating").value = this.state.maxRating ?? "";
+                UI.renderRatingChips();
+                this.onFiltersChanged();
+            },
+
+            toggleTag(tag, chipEl) {
+                if (this.state.selectedTags.has(tag)) {
+                    this.state.selectedTags.delete(tag);
+                    chipEl.classList.remove("active");
+                } else {
+                    this.state.selectedTags.add(tag);
+                    chipEl.classList.add("active");
+                }
+                this.onFiltersChanged();
+            },
+
+            setSolvedFilter(val) {
+                this.state.solvedFilter = val;
+                document.querySelectorAll("#solvedFilterGroup button").forEach(b => {
+                    b.classList.toggle("active", b.dataset.val === val);
+                });
+                this.onFiltersChanged();
+            },
+
+            clearAll() {
+                this.state.nameQuery = "";
+                this.state.minRating = null;
+                this.state.maxRating = null;
+                this.state.activeRatingChip = null;
+                this.state.selectedTags = new Set();
+                this.state.solvedFilter = "all";
+                document.getElementById("nameInput").value = "";
+                document.getElementById("minRating").value = "";
+                document.getElementById("maxRating").value = "";
+                document.querySelectorAll("#solvedFilterGroup button").forEach(b => b.classList.toggle("active", b.dataset.val === "all"));
+                document.querySelectorAll(".tag-chip").forEach(c => c.classList.remove("active"));
+                UI.renderRatingChips();
+                this.onFiltersChanged();
+            },
+
+            goToPage(page) {
+                const totalPages = Math.max(1, Math.ceil(this.filtered.length / CONFIG.PAGE_SIZE));
+                this.state.currentPage = Math.min(Math.max(1, page), totalPages);
+                UI.renderResults();
+                document.querySelector(".main").scrollIntoView({behavior: "smooth", block: "start"});
+            },
+
+            getCurrentPageItems() {
+                const start = (this.state.currentPage - 1) * CONFIG.PAGE_SIZE;
+                return this.filtered.slice(start, start + CONFIG.PAGE_SIZE);
+            }
+        };
+
+        /* =====================================================================
+           10) UI — العرض العام: القائمة، الشريط الجانبي، الإعدادات، الإحصاءات
+           ===================================================================== */
+        const UI = {
+
+            renderTagsChips() {
+                const container = document.getElementById("tagsContainer");
+                container.innerHTML = "";
+                CF_TAGS.forEach(tag => {
+                    const chip = document.createElement("div");
+                    chip.className = "tag-chip";
+                    chip.textContent = tag;
+                    chip.onclick = () => SearchEngine.toggleTag(tag, chip);
+                    container.appendChild(chip);
+                });
+            },
+
+            renderRatingChips() {
+                const container = document.getElementById("ratingChipsContainer");
+                container.innerHTML = "";
+                RATING_STEPS.forEach(r => {
+                    const chip = document.createElement("div");
+                    chip.className = "rating-chip" + (SearchEngine.state.activeRatingChip === r ? " active" : "");
+                    chip.textContent = r;
+                    chip.onclick = () => SearchEngine.toggleRatingChip(r);
+                    container.appendChild(chip);
+                });
+            },
+
+            toggleSidebar() {
+                document.getElementById("sidebar").classList.toggle("open");
+            },
+
+            updateTopbarStats() {
+                const solvedCount = StorageManager.getSolvedSet().size;
+                document.getElementById("topbarStats").innerHTML =
+                    `<span>📚 <b>${allProblems.length}</b> مسألة</span><span>✅ <b>${solvedCount}</b> محلولة</span>`;
+            },
+
+            renderResumeCard() {
+                const lastT = StorageManager.getLastTranslation();
+                const lastC = StorageManager.getLastExplanation();          // آخر تحليل من المدرب
+                const lastPE = StorageManager.getLastProblemExplanation();  // آخر شرح لصياغة المسألة (Problem Explanation)
+                const candidates = [
+                    lastT && Object.assign({label: "آخر ترجمة"}, lastT),
+                    lastC && Object.assign({label: "آخر تحليل من المدرب"}, lastC),
+                    lastPE && Object.assign({label: "آخر شرح للمسألة"}, lastPE)
+                ].filter(Boolean);
+
+                const section = document.getElementById("resumeSection");
+                if (candidates.length === 0) {section.style.display = "none"; return;}
+                const last = candidates.sort((a, b) => b.at - a.at)[0];
+
+                section.style.display = "block";
+                const card = document.getElementById("resumeCard");
+                card.innerHTML = `<div class="rc-label">${last.label}</div><div class="rc-name">${Utils.escapeHtml(last.name)}</div>`;
+                card.dataset.problemId = last.id;
+            },
+
+            // ---------- عرض قائمة النتائج (Pagination + Lazy Rendering) ----------
+            renderResults() {
+                const list = SearchEngine.filtered;
+                const countEl = document.getElementById("resultsInfo");
+                const listEl = document.getElementById("problemsList");
+                const pagEl = document.getElementById("paginationBar");
+
+                this.updateTopbarStats();
+
+                if (list.length === 0) {
+                    countEl.innerHTML = `تم العثور على: <span class="muted">0 مسألة</span>`;
+                    listEl.innerHTML = `<div class="empty-state">لم يتم العثور على أي مسائل تطابق بحثك أو الفلاتر الحالية. جرّب تعديل الفلاتر.</div>`;
+                    pagEl.innerHTML = "";
+                    return;
+                }
+
+                const totalPages = Math.max(1, Math.ceil(list.length / CONFIG.PAGE_SIZE));
+                const page = SearchEngine.state.currentPage;
+                countEl.innerHTML = `تم العثور على: <b>${list.length}</b> مسألة <span class="muted">— صفحة ${page} من ${totalPages}</span>`;
+
+                const pageItems = SearchEngine.getCurrentPageItems();
+                const solvedSet = StorageManager.getSolvedSet();
+                const taughtSet = StorageManager.getTaughtSet();
+
+                listEl.innerHTML = pageItems.map(p => this.renderProblemCard(p, solvedSet, taughtSet)).join("");
+                this.renderPagination(totalPages, page);
+            },
+
+            renderProblemCard(p, solvedSet, taughtSet) {
+                const id = Utils.problemId(p);
+                const tier = Utils.ratingTier(p.rating);
+                const isSolved = solvedSet.has(id);
+                const isCfVerified = StorageManager.isCfVerifiedSolved(id);
+                const isTaught = taughtSet.has(id);
+                const submitUrl = Utils.submitUrl(p);
+
+                const tagsHtml = p.tags.map(tag => {
+                    const isActive = SearchEngine.state.selectedTags.has(tag);
+                    return `<span class="tag" style="${isActive ? "background:#238636;color:#fff;border-color:#238636;" : ""}">${Utils.escapeHtml(tag)}</span>`;
+                }).join("");
+
+                return `
+            <div class="problem-card" style="border-right-color: var(--${tier.cls.replace("tier-", "r-")});" data-id="${id}">
+                <div class="problem-info" onclick="ProblemViewer.open('${id}')">
+                    <div class="problem-title-row">
+                        <span class="problem-id">${p.contestId}${p.index}</span>
+                        <span class="problem-title">${Utils.escapeHtml(p.name)}</span>
+                        ${isSolved ? '<span class="badge-mini badge-solved">✓ محلولة</span>' : ""}
+                        ${isTaught ? '<span class="badge-mini badge-taught">🎓 مشروحة</span>' : ""}
+                    </div>
+                    <div class="tags">${tagsHtml}</div>
+                </div>
+                <div class="card-actions">
+                    <div class="rating-badge ${tier.cls}">Rating: ${tier.label}</div>
+                    <button class="quick-solved-toggle ${isSolved ? "on" : ""} ${isCfVerified ? "cf-verified" : ""}"
+                        ${isCfVerified ? 'title="محلولة تلقائياً عبر حساب Codeforces المرتبط"' : ""}
+                        onclick="event.stopPropagation(); UI.quickToggleSolved('${id}', this)">
+                        ${isSolved ? (isCfVerified ? "✓ محلولة (CF)" : "✓ محلولة") : "وسم كمحلولة"}
+                    </button>
+                    <a href="${submitUrl}" target="_blank" class="submit-btn" onclick="event.stopPropagation();">تسليم الكود 🚀</a>
+                </div>
+            </div>`;
+            },
+
+            quickToggleSolved(id, btn) {
+                StorageManager.toggleSolved(id);
+                // القيمة الحقيقية بعد الدمج مع حساب Codeforces المرتبط (إن وُجد) — وليس فقط نتيجة التبديل اليدوي
+                const nowSolved = StorageManager.isSolved(id);
+                const isCfVerified = StorageManager.isCfVerifiedSolved(id);
+                btn.classList.toggle("on", nowSolved);
+                btn.classList.toggle("cf-verified", isCfVerified);
+                btn.textContent = nowSolved ? (isCfVerified ? "✓ محلولة (CF)" : "✓ محلولة") : "وسم كمحلولة";
+                const card = btn.closest(".problem-card");
+                const badgeRow = card.querySelector(".problem-title-row");
+                const existing = badgeRow.querySelector(".badge-solved");
+                if (nowSolved && !existing) {
+                    badgeRow.insertAdjacentHTML("beforeend", '<span class="badge-mini badge-solved">✓ محلولة</span>');
+                } else if (!nowSolved && existing) {
+                    existing.remove();
+                }
+                this.updateTopbarStats();
+            },
+
+            renderPagination(totalPages, page) {
+                const pagEl = document.getElementById("paginationBar");
+                if (totalPages <= 1) {pagEl.innerHTML = ""; return;}
+                pagEl.innerHTML = `
+            <button ${page <= 1 ? "disabled" : ""} onclick="SearchEngine.goToPage(1)">« الأولى</button>
+            <button ${page <= 1 ? "disabled" : ""} onclick="SearchEngine.goToPage(${page - 1})">‹ السابقة</button>
+            <span class="page-info">${page} / ${totalPages}</span>
+            <button ${page >= totalPages ? "disabled" : ""} onclick="SearchEngine.goToPage(${page + 1})">التالية ›</button>
+            <button ${page >= totalPages ? "disabled" : ""} onclick="SearchEngine.goToPage(${totalPages})">الأخيرة »</button>
+        `;
+            },
+
+            // ---------- إعدادات الذكاء الاصطناعي ----------
+            openSettings() {
+                const s = StorageManager.getSettings();
+                document.getElementById("settingsApiKey").value = s.aiApiKey || "";
+                document.getElementById("settingsEndpoint").value = s.aiEndpoint || "";
+                document.getElementById("settingsModel").value = s.aiModel || "";
+                document.getElementById("settingsModal").classList.add("open");
+            },
+            closeSettings() {
+                document.getElementById("settingsModal").classList.remove("open");
+            },
+            saveSettings() {
+                const obj = {
+                    aiApiKey: document.getElementById("settingsApiKey").value.trim(),
+                    aiEndpoint: document.getElementById("settingsEndpoint").value.trim(),
+                    aiModel: document.getElementById("settingsModel").value.trim()
+                };
+                StorageManager.saveSettings(obj);
+                this.closeSettings();
+                Utils.toast("تم حفظ الإعدادات", "success");
+            }
+        };
+
+        const TrainingResume = {
+            openLast() {
+                const card = document.getElementById("resumeCard");
+                const id = card.dataset.problemId;
+                const p = allProblems.find(pp => Utils.problemId(pp) === id);
+                if (p) ProblemViewer.open(id);
+                else Utils.toast("تعذّر إيجاد هذه المسألة في القائمة الحالية", "error");
+            }
+        };
+
+        /* =====================================================================
+           11) Dashboard — بطاقة حساب Codeforces في الشريط الجانبي + لوحة التحكم
+           الكاملة (إحصاءات التقدّم، التوزيع حسب Rating/Tag، والمسائل المقترحة)
+           ===================================================================== */
+        const Dashboard = {
+
+            // ---------- الشريط الجانبي: حالة الاتصال بالحساب ----------
+            renderAccountWidget() {
+                const box = document.getElementById("cfAccountBox");
+                if (!box) return;
+
+                if (!CFAccount.isConnected()) {
+                    box.innerHTML = `
+                <div class="cf-account-connect">
+                    <div class="field"><input type="text" id="cfHandleInput" placeholder="اكتب Handle الخاص بك على Codeforces"></div>
+                    <button class="btn btn-primary" style="width:100%;" onclick="Dashboard.connect()">🔗 ربط الحساب</button>
+                </div>`;
+                    return;
+                }
+
+                const p = CFAccount.data.profile;
+                const avatar = Utils.absoluteUrl(p.titlePhoto || p.avatar);
+                box.innerHTML = `
+            <div class="cf-account-profile">
+                ${avatar ? `<img class="cf-account-avatar" src="${avatar}" alt="avatar">` : ""}
+                <div>
+                    <div class="cf-account-name">${Utils.escapeHtml(CFAccount.data.handle)}</div>
+                    <div class="cf-account-rank">${Utils.escapeHtml(p.rank || "بدون تصنيف")} · ${p.rating || "—"}</div>
+                </div>
+            </div>
+            <div class="cf-account-actions">
+                <button class="btn btn-ghost" onclick="Dashboard.open()">📊 لوحة التحكم</button>
+                <button class="btn btn-ghost" onclick="Dashboard.refresh()">🔄 تحديث التقدم</button>
+                <button class="btn btn-danger-outline" onclick="Dashboard.disconnect()">✕ فصل الحساب</button>
+            </div>
+            <div class="cf-sync-note">آخر تحديث: ${Utils.relativeTimeFromMs(CFAccount.data.lastSyncedAt)}</div>`;
+            },
+
+            async connect() {
+                const input = document.getElementById("cfHandleInput");
+                const handle = input ? input.value.trim() : "";
+                if (!handle) {Utils.toast("يرجى إدخال Handle صالح", "error"); return;}
+
+                const box = document.getElementById("cfAccountBox");
+                const progress = AIProgress.start(box, {label: `جاري ربط حساب ${handle}...`});
+                progress.setStage("📡 جاري جلب بيانات الحساب من Codeforces...");
+                try {
+                    await CFAccount.connect(handle);
+                    progress.finish();
+                    this.renderAccountWidget();
+                    UI.renderResults();
+                    UI.updateTopbarStats();
+                    Utils.toast(`تم ربط الحساب بنجاح: ${CFAccount.data.handle} 🎉`, "success");
+                } catch (e) {
+                    progress.error(this._mapCfError(e), () => this.connect());
+                }
+            },
+
+            async refresh() {
+                if (!CFAccount.isConnected()) {Utils.toast("لا يوجد حساب مرتبط بعد", "error"); return;}
+                const box = document.getElementById("cfAccountBox");
+                const progress = AIProgress.start(box, {label: "جاري تحديث تقدّمك من Codeforces..."});
+                progress.setStage("📡 جاري جلب أحدث الإرساليات...");
+                try {
+                    await CFAccount.refresh();
+                    progress.finish();
+                    this.renderAccountWidget();
+                    UI.renderResults();
+                    UI.updateTopbarStats();
+                    if (document.getElementById("dashboardModal").classList.contains("open")) this.renderDashboardBody();
+                    Utils.toast("تم تحديث التقدم بنجاح ✅", "success");
+                } catch (e) {
+                    progress.error(this._mapCfError(e), () => this.refresh());
+                }
+            },
+
+            disconnect() {
+                const confirmed = window.confirm("هل تريد فصل حساب Codeforces؟ لن تُحذف المسائل التي وسمتها يدوياً كمحلولة.");
+                if (!confirmed) return;
+                CFAccount.disconnect();
+                this.renderAccountWidget();
+                UI.renderResults();
+                UI.updateTopbarStats();
+                Utils.toast("تم فصل الحساب", "info");
+            },
+
+            // يحوّل أخطاء CFAccount إلى رسالة عربية واضحة تُعرض داخل بطاقة الخطأ الموحّدة من AIProgress
+            _mapCfError(e) {
+                const reason = e && e.message;
+                const err = new Error(reason);
+                if (reason === "EMPTY_HANDLE") err.customMessage = "يرجى إدخال Handle صالح.";
+                else if (reason === "CF_USER_NOT_FOUND") err.customMessage = "لم يتم العثور على هذا الـ Handle على Codeforces. تأكد من كتابته بشكل صحيح.";
+                else if (reason === "NOT_CONNECTED") err.customMessage = "لا يوجد حساب مرتبط بعد.";
+                else err.customMessage = "تعذّر الاتصال بخوادم Codeforces. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.";
+                return err;
+            },
+
+            // ---------- لوحة التحكم الكاملة ----------
+            open() {
+                if (!CFAccount.isConnected()) {Utils.toast("اربط حسابك في Codeforces أولاً من الشريط الجانبي", "info"); return;}
+                this.renderDashboardBody();
+                document.getElementById("dashboardModal").classList.add("open");
+            },
+            close() {
+                document.getElementById("dashboardModal").classList.remove("open");
+            },
+
+            renderDashboardBody() {
+                const body = document.getElementById("dashboardBody");
+                const p = CFAccount.data.profile;
+                const stats = CFAccount.buildStats();
+                const avatar = Utils.absoluteUrl(p.titlePhoto || p.avatar);
+
+                body.innerHTML = `
+            <div class="dash-header">
+                ${avatar ? `<img class="dash-avatar" src="${avatar}" alt="avatar">` : ""}
+                <div>
+                    <div class="dash-handle">${Utils.escapeHtml(CFAccount.data.handle)}</div>
+                    <div class="dash-rank-line">
+                        الرتبة الحالية: <b>${Utils.escapeHtml(p.rank || "—")}</b> ·
+                        أعلى رتبة: <b>${Utils.escapeHtml(p.maxRank || "—")}</b>
+                    </div>
+                    <div class="dash-rank-line">
+                        مسجّل منذ ${p.registrationTimeSeconds ? new Date(p.registrationTimeSeconds * 1000).toLocaleDateString("ar-EG") : "—"} ·
+                        آخر ظهور: ${Utils.relativeTimeFromSeconds(p.lastOnlineTimeSeconds)}
+                    </div>
+                </div>
+            </div>
+
+            <div class="dash-stats-grid">
+                <div class="dash-stat-card"><div class="dash-stat-value">${p.rating || "—"}</div><div class="dash-stat-label">Rating الحالي</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${p.maxRating || "—"}</div><div class="dash-stat-label">أعلى Rating</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${p.contribution || 0}</div><div class="dash-stat-label">Contribution</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${p.friendOfCount || 0}</div><div class="dash-stat-label">Friend Count</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${stats.solvedCount}</div><div class="dash-stat-label">مسائل محلولة</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${stats.unsolvedCount}</div><div class="dash-stat-label">مسائل غير محلولة</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${stats.completionPct.toFixed(1)}%</div><div class="dash-stat-label">نسبة الإنجاز</div></div>
+                <div class="dash-stat-card"><div class="dash-stat-value">${CFAccount.data.submissionsCount || 0}</div><div class="dash-stat-label">إجمالي الإرساليات</div></div>
+            </div>
+
+            <div class="dash-section-title">📈 المسائل المحلولة حسب الـ Rating</div>
+            <div id="dashRatingBars">${this.buildRatingBarsHtml(stats.byRating)}</div>
+
+            <div class="dash-section-title">🏷️ المسائل المحلولة حسب الـ Tag</div>
+            <div id="dashTagBars">${this.buildTagBarsHtml(stats.byTag)}</div>
+
+            <div class="dash-section-title">🎯 مسائل مقترحة للتدريب القادم</div>
+            <div class="recommend-list">${this.buildRecommendedHtml()}</div>
+        `;
+            },
+
+            buildRatingBarsHtml(byRating) {
+                const entries = Object.keys(byRating).map(r => ({rating: parseInt(r, 10), count: byRating[r]})).sort((a, b) => a.rating - b.rating);
+                if (entries.length === 0) return `<p style="color:var(--text-muted);font-size:0.85em;">لا توجد بيانات كافية بعد — جرّب "تحديث التقدم" بعد حل بعض المسائل.</p>`;
+                const max = Math.max(...entries.map(e => e.count));
+                return entries.map(e => `
+            <div class="dash-bar-row">
+                <div class="dash-bar-label">${e.rating}</div>
+                <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${(e.count / max * 100).toFixed(0)}%;"></div></div>
+                <div class="dash-bar-count">${e.count}</div>
+            </div>`).join("");
+            },
+
+            buildTagBarsHtml(byTag) {
+                const entries = Object.keys(byTag).map(t => ({tag: t, count: byTag[t]})).sort((a, b) => b.count - a.count).slice(0, 12);
+                if (entries.length === 0) return `<p style="color:var(--text-muted);font-size:0.85em;">لا توجد بيانات كافية بعد — جرّب "تحديث التقدم" بعد حل بعض المسائل.</p>`;
+                const max = Math.max(...entries.map(e => e.count));
+                return entries.map(e => `
+            <div class="dash-tag-row">
+                <div class="dash-tag-label">${Utils.escapeHtml(e.tag)}</div>
+                <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${(e.count / max * 100).toFixed(0)}%;"></div></div>
+                <div class="dash-bar-count">${e.count}</div>
+            </div>`).join("");
+            },
+
+            buildRecommendedHtml() {
+                const list = CFAccount.recommendNext(10);
+                if (list.length === 0) return `<p style="color:var(--text-muted);font-size:0.85em;">لا توجد اقتراحات متاحة حالياً.</p>`;
+                return list.map(p => {
+                    const tier = Utils.ratingTier(p.rating);
+                    const id = Utils.problemId(p);
+                    return `
+                <div class="recommend-item" onclick="Dashboard.close(); ProblemViewer.open('${id}')">
+                    <div>
+                        <div class="ri-name">${p.contestId}${p.index} — ${Utils.escapeHtml(p.name)}</div>
+                        <div class="ri-tags">${(p.tags || []).slice(0, 4).map(t => Utils.escapeHtml(t)).join(" · ")}</div>
+                    </div>
+                    <div class="rating-badge ${tier.cls}" style="width:auto;">${tier.label}</div>
+                </div>`;
+                }).join("");
+            }
+        };
+
+        /* =====================================================================
+           12) ProblemViewer — نافذة عرض المسألة (Tabs: English / العربية / شرح المسألة / المدرب)
+           ===================================================================== */
+        const ProblemViewer = {
+            current: null,        // كائن المسألة الحالية (من Codeforces API)
+            tab: "english",
+            statement: null,      // النص المُحلّل (مرة واحدة لكل فتح، يُعاد استخدامه بين التبويبات)
+            statementError: null,
+            loading: {english: false, arabic: false, explanation: false, coach: false},
+            fullSolutionText: null,
+
+            open(id) {
+                const p = allProblems.find(pp => Utils.problemId(pp) === id);
+                if (!p) {Utils.toast("تعذّر إيجاد المسألة", "error"); return;}
+                this.current = p;
+                this.tab = "english";
+                this.statement = null;
+                this.statementError = null;
+                this.fullSolutionText = null;
+
+                const cache = StorageManager.getAICacheEntry(id);
+                if (cache && cache.statementParsed) this.statement = cache.statementParsed;
+
+                document.getElementById("modalTitle").textContent = `${p.contestId}${p.index} — ${p.name}`;
+                this.renderMeta();
+                this.renderLinks();
+                document.querySelectorAll("#modalTabs .modal-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === "english"));
+                document.getElementById("problemModal").classList.add("open");
+                this.renderTabBody();
+            },
+
+            close() {
+                document.getElementById("problemModal").classList.remove("open");
+            },
+
+            renderMeta() {
+                const p = this.current;
+                const tier = Utils.ratingTier(p.rating);
+                const id = Utils.problemId(p);
+                const isSolved = StorageManager.isSolved(id);
+                const isCfVerified = StorageManager.isCfVerifiedSolved(id);
+                document.getElementById("modalMeta").innerHTML = `
+            <span class="rating-badge ${tier.cls}" style="width:auto;">Rating: ${tier.label}</span>
+            ${p.tags.map(t => `<span class="tag">${Utils.escapeHtml(t)}</span>`).join("")}
+        `;
+                const btn = document.getElementById("solvedToggleBtn");
+                btn.classList.toggle("on", isSolved);
+                btn.textContent = isSolved ? (isCfVerified ? "✓ محلولة (CF)" : "✓ تم الحل") : "وسم كمحلولة";
+            },
+
+            renderLinks() {
+                const p = this.current;
+                document.getElementById("modalLinks").innerHTML = `
+            <a class="link-chip" href="${Utils.problemUrl(p)}" target="_blank">↗ فتح في Codeforces</a>
+            <a class="link-chip" href="${Utils.submitUrl(p)}" target="_blank">🚀 صفحة التسليم</a>
+            <a class="link-chip" href="${Utils.statusUrl(p)}" target="_blank">📜 الحلول المقبولة</a>
+        `;
+            },
+
+            toggleSolved() {
+                const id = Utils.problemId(this.current);
+                if (StorageManager.isCfVerifiedSolved(id)) {
+                    StorageManager.toggleSolved(id); // لن يُغيّر الحالة، لكنه سيعرض توضيحاً للمستخدم
+                    return;
+                }
+                const nowSolved = StorageManager.toggleSolved(id);
+                this.renderMeta();
+                UI.renderResults();
+                Utils.toast(nowSolved ? "تم وسم المسألة كمحلولة 🎉" : "تم إلغاء وسم الحل", "success");
+            },
+
+            switchTab(tab) {
+                this.tab = tab;
+                document.querySelectorAll("#modalTabs .modal-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+                this.renderTabBody();
+            },
+
+            renderTabBody() {
+                const body = document.getElementById("modalBody");
+                if (this.tab === "english") return this.renderEnglishTab(body);
+                if (this.tab === "arabic") return this.renderArabicTab(body);
+                if (this.tab === "explanation") return this.renderExplanationTab(body);
+                if (this.tab === "coach") return this.renderCoachTab(body);
+            },
+
+            // ---------- تبويب النص الأصلي ----------
+            async renderEnglishTab(body) {
+                if (this.statement) {body.innerHTML = this.buildStatementHtml(this.statement); this.typesetMath(); return;}
+                if (this.statementError) {body.innerHTML = this.buildFetchErrorHtml(); return;}
+
+                body.innerHTML = `<div class="ai-loading"><div class="spinner"></div> جاري جلب نص المسألة من Codeforces...</div>`;
+                try {
+                    this.statement = await StatementFetcher.getStatement(this.current);
+                    if (this.tab === "english") {body.innerHTML = this.buildStatementHtml(this.statement); this.typesetMath();}
+                } catch (e) {
+                    this.statementError = e;
+                    if (this.tab === "english") body.innerHTML = this.buildFetchErrorHtml();
+                }
+            },
+
+            buildStatementHtml(s) {
+                const props = [];
+                if (s.timeLimit) props.push(`<span>⏱ <b>${Utils.escapeHtml(s.timeLimit)}</b></span>`);
+                if (s.memoryLimit) props.push(`<span>💾 <b>${Utils.escapeHtml(s.memoryLimit)}</b></span>`);
+                if (s.inputFile) props.push(`<span>📥 input: <b>${Utils.escapeHtml(s.inputFile)}</b></span>`);
+                if (s.outputFile) props.push(`<span>📤 output: <b>${Utils.escapeHtml(s.outputFile)}</b></span>`);
+
+                const samplesHtml = s.samples.map((sample, i) => `
+            <div class="io-grid">
+                <div class="io-block"><div class="io-label">Input ${i + 1}</div><pre>${Utils.escapeHtml(sample.input)}</pre></div>
+                <div class="io-block"><div class="io-label">Output ${i + 1}</div><pre>${Utils.escapeHtml(sample.output)}</pre></div>
+            </div>
+        `).join("");
+
+                return `
+            <div class="statement">
+                <div class="cf-header-props">${props.join("")}</div>
+                ${s.bodyHtml}
+                ${s.inputSpecHtml ? `<h4>Input</h4>${s.inputSpecHtml}` : ""}
+                ${s.outputSpecHtml ? `<h4>Output</h4>${s.outputSpecHtml}` : ""}
+                ${s.samples.length ? `<h4>Examples</h4>${samplesHtml}` : ""}
+                ${s.noteHtml ? `<h4>Note</h4>${s.noteHtml}` : ""}
+            </div>`;
+            },
+
+            buildFetchErrorHtml() {
+                const p = this.current;
+                const code = (this.statementError && this.statementError.message) || "";
+
+                const reasons = {
+                    WORKER_NOT_CONFIGURED: "لم يتم ضبط عنوان الـ Worker بعد. عيّن <code>CONFIG.WORKER_BASE_URL</code> بعد نشر الـ Worker (انظر مجلد <code>worker/</code>).",
+                    WORKER_NETWORK_ERROR: "تعذّر الوصول إلى الـ Worker. تحقق من اتصالك بالإنترنت أو من أن الـ Worker منشور وفعّال.",
+                    PROBLEM_NOT_FOUND: "لم يتم العثور على هذه المسألة على Codeforces.",
+                    INVALID_CONTEST_ID: "رقم المسابقة غير صالح.",
+                    INVALID_PROBLEM_INDEX: "رمز المسألة غير صالح.",
+                    UPSTREAM_TIMEOUT: "استغرق طلب Codeforces وقتاً أطول من اللازم (Timeout). حاول مرة أخرى.",
+                    UPSTREAM_UNREACHABLE: "تعذّر على الـ Worker الوصول إلى Codeforces حالياً.",
+                    UPSTREAM_ERROR: "أعادت Codeforces خطأً غير متوقع.",
+                };
+                const reason = reasons[code] || "حدث خطأ غير متوقع أثناء الجلب عبر الـ Worker.";
+
+                return `
+            <div class="ai-error-box">
+                <b>تعذّر جلب نص المسألة تلقائياً.</b><br>
+                ${reason}
+                <ul>
+                    <li>يمكنك فتح المسألة مباشرة على <a href="${Utils.problemUrl(p)}" target="_blank">صفحة Codeforces</a> في هذه الأثناء.</li>
+                </ul>
+                <button class="btn btn-ghost" onclick="ProblemViewer.retryFetch()">إعادة المحاولة</button>
+            </div>`;
+            },
+
+            retryFetch() {
+                this.statement = null;
+                this.statementError = null;
+                this.renderTabBody();
+            },
+
+            typesetMath() {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise().catch(() => { });
+                }
+            },
+
+            // ---------- تبويب الترجمة العربية ----------
+            async renderArabicTab(body) {
+                const id = Utils.problemId(this.current);
+                const cache = StorageManager.getAICacheEntry(id);
+
+                if (cache && cache.translation) {
+                    body.innerHTML = `
+                <div class="translation-box"><div class="statement" dir="rtl" style="direction:rtl;text-align:right;">${this.renderPlainTextAsHtml(cache.translation)}</div></div>
+                <div style="margin-top:16px; text-align:center;">
+                    <button class="btn btn-ghost" onclick="ProblemViewer.retranslate()">🔁 إعادة الترجمة</button>
+                </div>`;
+                    this.typesetMath();
+                    return;
+                }
+
+                if (!AIEngine.hasApiKey()) {
+                    body.innerHTML = this.buildNoApiKeyHtml("للحصول على الترجمة العربية، يحتاج التطبيق مفتاح API لنموذج ذكاء اصطناعي.");
+                    return;
+                }
+
+                body.innerHTML = `
+            <div class="ai-cta">
+                <p>اضغط الزر لترجمة نص المسألة إلى العربية باستخدام الذكاء الاصطناعي.</p>
+                <button class="btn btn-primary" onclick="ProblemViewer.doTranslate()">🌐 ترجمة بالعربية</button>
+            </div>`;
+            },
+
+            async doTranslate() {
+                const body = document.getElementById("modalBody");
+                const progress = AIProgress.start(body, {label: "جاري ترجمة نص المسألة إلى العربية"});
+                try {
+                    if (!this.statement) this.statement = await StatementFetcher.getStatement(this.current);
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const plain = StatementFetcher.toPlainText(this.statement);
+                    progress.setStage("📡 جاري إرسال الطلب إلى الذكاء الاصطناعي...");
+                    await AIEngine.translate(this.current, plain);
+                    if (this.tab === "arabic") {progress.finish(); this.renderArabicTab(body);}
+                    UI.renderResumeCard();
+                } catch (e) {
+                    if (this.tab === "arabic") progress.error(e, () => this.doTranslate());
+                }
+            },
+
+            retranslate() {
+                const id = Utils.problemId(this.current);
+                StorageManager.setAICacheEntry(id, {translation: null});
+                this.doTranslate();
+            },
+
+            // ---------- تبويب شرح المسألة (Problem Explanation) ----------
+            // يشرح صياغة المسألة فقط (المطلوب/المدخلات/المخرجات/الأمثلة/القيود/المصطلحات) دون أي فكرة حل أو تلميح
+            async renderExplanationTab(body) {
+                const id = Utils.problemId(this.current);
+                const cache = StorageManager.getAICacheEntry(id);
+
+                if (cache && cache.problemExplanation) {
+                    body.innerHTML = this.buildExplanationHtml(cache.problemExplanation);
+                    this.typesetMath();
+                    return;
+                }
+
+                if (!AIEngine.hasApiKey()) {
+                    body.innerHTML = this.buildNoApiKeyHtml("لعرض شرح مبسّط لصياغة المسألة، يحتاج التطبيق مفتاح API لنموذج ذكاء اصطناعي.");
+                    return;
+                }
+
+                body.innerHTML = `
+            <div class="ai-cta">
+                <p>سيشرح الذكاء الاصطناعي المطلوب والمدخلات والمخرجات وكل مثال خطوة بخطوة لتفهم المسألة جيداً — دون أي فكرة حل أو تلميح.</p>
+                <button class="btn btn-primary" onclick="ProblemViewer.doExplain()">🧩 اشرح لي المسألة</button>
+            </div>`;
+            },
+
+            async doExplain() {
+                const body = document.getElementById("modalBody");
+                const progress = AIProgress.start(body, {label: "جاري تحضير شرح مبسّط للمسألة"});
+                try {
+                    if (!this.statement) this.statement = await StatementFetcher.getStatement(this.current);
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const plain = StatementFetcher.toPlainText(this.statement);
+                    progress.setStage("📡 جاري إرسال الطلب إلى الذكاء الاصطناعي...");
+                    await AIEngine.explainProblem(this.current, plain);
+                    if (this.tab === "explanation") {progress.finish(); this.renderTabBody();}
+                    UI.renderResumeCard();
+                } catch (e) {
+                    if (this.tab === "explanation") progress.error(e, () => this.doExplain());
+                }
+            },
+
+            reExplain() {
+                const id = Utils.problemId(this.current);
+                StorageManager.setAICacheEntry(id, {problemExplanation: null});
+                this.doExplain();
+            },
+
+            buildExplanationHtml(exp) {
+                const examplesHtml = (exp.examples || []).map((ex, i) => `
+            <div class="explanation-example-box">
+                <div class="ex-title">${Utils.escapeHtml(ex.title || `Example ${i + 1}`)}</div>
+                <div>${Utils.escapeHtml(ex.explanation)}</div>
+            </div>`).join("");
+
+                const glossaryHtml = (exp.glossary || []).length
+                    ? `<div class="glossary-list">${exp.glossary.map(g => `<div class="glossary-item"><b>${Utils.escapeHtml(g.term)}</b>: ${Utils.escapeHtml(g.meaning)}</div>`).join("")}</div>`
+                    : "";
+
+                return `
+            <div class="coach-section"><h4>❓ ماذا تطلب المسألة</h4><div class="content">${Utils.escapeHtml(exp.whatIsAsked)}</div></div>
+            <div class="coach-section"><h4>🎯 الهدف النهائي</h4><div class="content">${Utils.escapeHtml(exp.finalGoal)}</div></div>
+            <div class="coach-section"><h4>📥 شرح المدخلات (Input)</h4><div class="content">${Utils.escapeHtml(exp.inputExplanation)}</div></div>
+            <div class="coach-section"><h4>📤 شرح المخرجات (Output)</h4><div class="content">${Utils.escapeHtml(exp.outputExplanation)}</div></div>
+            ${examplesHtml ? `<div class="coach-section"><h4>🧮 شرح الأمثلة خطوة بخطوة</h4>${examplesHtml}</div>` : ""}
+            ${exp.constraintsExplanation ? `<div class="coach-section"><h4>📏 توضيح القيود (Constraints)</h4><div class="content">${Utils.escapeHtml(exp.constraintsExplanation)}</div></div>` : ""}
+            ${glossaryHtml ? `<div class="coach-section"><h4>📖 مصطلحات قد تكون غامضة</h4>${glossaryHtml}</div>` : ""}
+            <div class="coach-section"><h4>✨ صياغة مبسّطة للمبتدئين</h4><div class="content">${Utils.escapeHtml(exp.simplifiedSummary)}</div></div>
+            <div style="margin-top:16px; text-align:center;">
+                <button class="btn btn-ghost" onclick="ProblemViewer.reExplain()">🔁 إعادة الشرح</button>
+            </div>`;
+            },
+
+            // ---------- تبويب المدرب (AI Coach) ----------
+            async renderCoachTab(body) {
+                const id = Utils.problemId(this.current);
+                const cache = StorageManager.getAICacheEntry(id);
+
+                if (cache && cache.coach) {
+                    body.innerHTML = this.buildCoachHtml(cache.coach, cache.revealedHints || 0);
+                    return;
+                }
+
+                if (!AIEngine.hasApiKey()) {
+                    body.innerHTML = this.buildNoApiKeyHtml("للحصول على تحليل المدرب الذكي، يحتاج التطبيق مفتاح API لنموذج ذكاء اصطناعي.");
+                    return;
+                }
+
+                body.innerHTML = `
+            <div class="ai-cta">
+                <p>سيقوم المدرب الذكي بشرح فكرة المسألة والمفاهيم المطلوبة وتقديم تلميحات تدريجية — دون إعطاء الحل الكامل مباشرة.</p>
+                <button class="btn btn-primary" onclick="ProblemViewer.doCoach()">🧠 احصل على تحليل المدرب</button>
+            </div>`;
+            },
+
+            async doCoach() {
+                const body = document.getElementById("modalBody");
+                const progress = AIProgress.start(body, {label: "المدرب الذكي يحلل المسألة الآن"});
+                try {
+                    if (!this.statement) this.statement = await StatementFetcher.getStatement(this.current);
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const plain = StatementFetcher.toPlainText(this.statement);
+                    progress.setStage("🤔 المدرب يفكر في أفضل طريقة للشرح...");
+                    await AIEngine.coach(this.current, plain);
+                    UI.renderResults(); // لتحديث شارة "مشروحة" على البطاقة
+                    if (this.tab === "coach") {progress.finish(); this.renderTabBody();}
+                } catch (e) {
+                    if (this.tab === "coach") progress.error(e, () => this.doCoach());
+                }
+            },
+
+            buildCoachHtml(coach, revealedHints) {
+                const hintsHtml = (coach.hints || []).map((hint, i) => {
+                    const revealed = i < revealedHints;
+                    if (revealed) {
+                        return `<div class="hint-item"><div class="hint-btn">Hint ${i + 1}</div><div class="hint-body">${Utils.escapeHtml(hint)}</div></div>`;
+                    }
+                    if (i === revealedHints) {
+                        return `<div class="hint-item"><button class="hint-btn" onclick="ProblemViewer.revealHint(${i + 1})">🔒 إظهار Hint ${i + 1}</button></div>`;
+                    }
+                    return `<div class="hint-item locked-hint"><div class="hint-btn">🔒 Hint ${i + 1} (افتح التلميح السابق أولاً)</div></div>`;
+                }).join("");
+
+                return `
+            <div class="coach-section"><h4>💡 الملاحظة الأساسية</h4><div class="content">${Utils.escapeHtml(coach.observation)}</div></div>
+            <div class="coach-section"><h4>⚙️ فكرة الخوارزمية</h4><div class="content">${Utils.escapeHtml(coach.algorithm)}</div></div>
+            <div class="coach-section"><h4>📈 التعقيد الزمني</h4><div class="content">${Utils.escapeHtml(coach.complexity)}</div></div>
+            <div class="coach-section"><h4>🧩 تلميحات تدريجية</h4>${hintsHtml || '<p style="color:var(--text-muted)">لا توجد تلميحات إضافية.</p>'}</div>
+            <div class="code-warning-box">
+                <b>⚠️ منطقة الحل الكامل</b><br>
+                <span style="font-size:0.88em;color:var(--text-muted);">لن يظهر أي كود إلا إذا طلبته صراحة هنا.</span><br><br>
+                <button class="btn btn-danger-outline" onclick="ProblemViewer.requestFullSolution()">إظهار الحل الكامل (كود)</button>
+                <div id="fullSolutionBox" style="margin-top:12px;"></div>
+            </div>`;
+            },
+
+            revealHint(count) {
+                const id = Utils.problemId(this.current);
+                StorageManager.setAICacheEntry(id, {revealedHints: count});
+                this.renderTabBody();
+            },
+
+            async requestFullSolution() {
+                const confirmed = window.confirm("هل أنت متأكد؟ سيتم عرض حل كامل بالكود لهذه المسألة الآن.");
+                if (!confirmed) return;
+                const lang = window.prompt("ما لغة البرمجة المفضلة للحل؟", "C++") || "C++";
+                const box = document.getElementById("fullSolutionBox");
+                const progress = AIProgress.start(box, {label: `جاري إعداد الحل الكامل بلغة ${lang}`});
+                try {
+                    if (!this.statement) this.statement = await StatementFetcher.getStatement(this.current);
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const plain = StatementFetcher.toPlainText(this.statement);
+                    progress.setStage("✍️ جاري كتابة الحل...");
+                    const solution = await AIEngine.fullSolution(this.current, plain, lang);
+                    progress.finish();
+                    box.innerHTML = `<pre style="white-space:pre-wrap;">${Utils.escapeHtml(solution)}</pre>`;
+                } catch (e) {
+                    progress.error(e, () => this.requestFullSolution());
+                }
+            },
+
+            // ---------- عناصر مساعدة مشتركة ----------
+            buildNoApiKeyHtml(message) {
+                return `
+            <div class="ai-error-box">
+                ${message}<br><br>
+                اضغط على أيقونة ⚙️ في الأعلى لإضافة مفتاح API الخاص بك (يُحفظ محلياً في متصفحك فقط).
+                <br><br>
+                <button class="btn btn-primary" onclick="ProblemViewer.close(); UI.openSettings();">فتح الإعدادات</button>
+            </div>`;
+            },
+
+            buildAIErrorHtml(e) {
+                if (e && e.code === "NO_API_KEY") return this.buildNoApiKeyHtml("يحتاج هذا الإجراء مفتاح API لنموذج ذكاء اصطناعي.");
+                let msg = "حدث خطأ أثناء الاتصال بنموذج الذكاء الاصطناعي.";
+                if (e && e.code === "NETWORK_ERROR") msg = "تعذّر الاتصال بالخدمة (تحقق من اتصالك بالإنترنت أو رابط الـ Endpoint في الإعدادات).";
+                if (e && e.code === "HTTP_ERROR") msg = `فشل الطلب (HTTP ${e.status}). تحقق من صحة مفتاح API والنموذج المحدد في الإعدادات.`;
+                return `<div class="ai-error-box">${msg}<br><br><button class="btn btn-ghost" onclick="ProblemViewer.renderTabBody()">إعادة المحاولة</button></div>`;
+            },
+
+            // تحويل نص عادي (بفقرات) إلى HTML بسيط لعرض الترجمة بشكل مقروء
+            renderPlainTextAsHtml(text) {
+                return text.split(/\n{2,}/).map(par => `<p>${Utils.escapeHtml(par).replace(/\n/g, "<br>")}</p>`).join("");
+            }
+        };
+
+        /* =====================================================================
+           13) TrainingMode — وضع التدريب الموجّه خطوة بخطوة
+               Problem → Translation → Think Phase → Hints → Solution Discussion
+           ===================================================================== */
+        const TrainingMode = {
+            STEPS: [
+                {key: "problem", label: "المسألة"},
+                {key: "translation", label: "الترجمة"},
+                {key: "think", label: "التفكير"},
+                {key: "hints", label: "التلميحات"},
+                {key: "solution", label: "مناقشة الحل"}
+            ],
+
+            problem: null,
+            stepIndex: 0,
+            timer: {seconds: 0, mode: "stopwatch", targetSeconds: 600, intervalId: null, running: false},
+
+            start() {
+                if (!ProblemViewer.current) return;
+                this.problem = ProblemViewer.current;
+                this.stepIndex = 0;
+                this.resetTimer();
+                ProblemViewer.close();
+                document.getElementById("trainingTitle").textContent =
+                    `وضع التدريب — ${this.problem.contestId}${this.problem.index} ${this.problem.name}`;
+                document.getElementById("trainingOverlay").classList.add("open");
+                this.render();
+            },
+
+            exit() {
+                this.pauseTimer();
+                document.getElementById("trainingOverlay").classList.remove("open");
+            },
+
+            next() {
+                if (this.stepIndex < this.STEPS.length - 1) {this.stepIndex++; this.render();}
+            },
+            back() {
+                if (this.stepIndex > 0) {this.stepIndex--; this.render();}
+            },
+
+            render() {
+                this.renderStepper();
+                this.renderBody();
+                document.getElementById("trainingBackBtn").disabled = this.stepIndex === 0;
+                const nextBtn = document.getElementById("trainingNextBtn");
+                if (this.stepIndex === this.STEPS.length - 1) {
+                    nextBtn.textContent = "إنهاء التدريب";
+                    nextBtn.onclick = () => TrainingMode.exit();
+                } else {
+                    nextBtn.textContent = "التالي ←";
+                    nextBtn.onclick = () => TrainingMode.next();
+                }
+            },
+
+            renderStepper() {
+                document.getElementById("trainingStepper").innerHTML = this.STEPS.map((s, i) => {
+                    let cls = "step-pill";
+                    if (i < this.stepIndex) cls += " done";
+                    if (i === this.stepIndex) cls += " current";
+                    return `<div class="${cls}">${i + 1}. ${s.label}</div>`;
+                }).join("");
+            },
+
+            renderBody() {
+                const body = document.getElementById("trainingBody");
+                const key = this.STEPS[this.stepIndex].key;
+                if (key === "problem") return this.renderProblemStep(body);
+                if (key === "translation") return this.renderTranslationStep(body);
+                if (key === "think") return this.renderThinkStep(body);
+                if (key === "hints") return this.renderHintsStep(body);
+                if (key === "solution") return this.renderSolutionStep(body);
+            },
+
+            // ---------- خطوة 1: عرض المسألة الأصلية ----------
+            async renderProblemStep(body) {
+                if (ProblemViewer.statement && Utils.problemId(ProblemViewer.current) === Utils.problemId(this.problem)) {
+                    body.innerHTML = ProblemViewer.buildStatementHtml(ProblemViewer.statement);
+                    ProblemViewer.typesetMath();
+                    return;
+                }
+                body.innerHTML = `<div class="ai-loading"><div class="spinner"></div> جاري جلب نص المسألة...</div>`;
+                try {
+                    const statement = await StatementFetcher.getStatement(this.problem);
+                    ProblemViewer.statement = statement;
+                    if (this.STEPS[this.stepIndex].key === "problem") {
+                        body.innerHTML = ProblemViewer.buildStatementHtml(statement);
+                        ProblemViewer.typesetMath();
+                    }
+                } catch (e) {
+                    body.innerHTML = ProblemViewer.buildFetchErrorHtml.call({current: this.problem});
+                }
+            },
+
+            // ---------- خطوة 2: الترجمة ----------
+            async renderTranslationStep(body) {
+                const id = Utils.problemId(this.problem);
+                const cache = StorageManager.getAICacheEntry(id);
+                if (cache && cache.translation) {
+                    body.innerHTML = `<div class="translation-box"><div class="statement" style="direction:rtl;text-align:right;">${ProblemViewer.renderPlainTextAsHtml(cache.translation)}</div></div>`;
+                    ProblemViewer.typesetMath();
+                    return;
+                }
+                if (!AIEngine.hasApiKey()) {body.innerHTML = ProblemViewer.buildNoApiKeyHtml("لعرض الترجمة العربية هنا، أضف مفتاح API من الإعدادات."); return;}
+                body.innerHTML = `
+            <div class="ai-cta">
+                <p>لم تتم ترجمة هذه المسألة بعد.</p>
+                <button class="btn btn-primary" onclick="TrainingMode.doTranslateInline()">🌐 ترجمة بالعربية الآن</button>
+            </div>`;
+            },
+
+            async doTranslateInline() {
+                const body = document.getElementById("trainingBody");
+                const progress = AIProgress.start(body, {label: "جاري ترجمة نص المسألة إلى العربية"});
+                try {
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const statement = ProblemViewer.statement || await StatementFetcher.getStatement(this.problem);
+                    ProblemViewer.statement = statement;
+                    const plain = StatementFetcher.toPlainText(statement);
+                    progress.setStage("📡 جاري إرسال الطلب إلى الذكاء الاصطناعي...");
+                    await AIEngine.translate(this.problem, plain);
+                    progress.finish();
+                    this.renderTranslationStep(body);
+                } catch (e) {
+                    progress.error(e, () => this.doTranslateInline());
+                }
+            },
+
+            // ---------- خطوة 3: مرحلة التفكير (مع مؤقت اختياري وملاحظات) ----------
+            renderThinkStep(body) {
+                const id = Utils.problemId(this.problem);
+                const note = StorageManager.getNote(id);
+                body.innerHTML = `
+            <div class="timer-box">
+                <span>⏳</span>
+                <div class="timer-display" id="timerDisplay">${Utils.formatTime(this.timer.mode === "countdown" ? this.timer.targetSeconds - this.timer.seconds : this.timer.seconds)}</div>
+                <select id="timerModeSelect" onchange="TrainingMode.changeTimerMode(this.value)">
+                    <option value="stopwatch" ${this.timer.mode === "stopwatch" ? "selected" : ""}>ساعة إيقاف (تصاعدي)</option>
+                    <option value="10">مؤقت 10 دقائق</option>
+                    <option value="20">مؤقت 20 دقيقة</option>
+                    <option value="30">مؤقت 30 دقيقة</option>
+                    <option value="45">مؤقت 45 دقيقة</option>
+                </select>
+                <button class="btn btn-ghost" onclick="TrainingMode.toggleTimer()">${this.timer.running ? "⏸ إيقاف مؤقت" : "▶ ابدأ"}</button>
+                <button class="btn btn-ghost" onclick="TrainingMode.resetTimer()">↺ تصفير</button>
+            </div>
+            <p style="color:var(--text-muted); line-height:1.8;">
+                هذه فترة تفكير حرة. حاول فهم المسألة ووضع خطة للحل بنفسك قبل الانتقال إلى التلميحات.
+                يمكنك كتابة أفكارك أو ملاحظاتك في الأسفل — يتم حفظها تلقائياً.
+            </p>
+            <div class="notes-area">
+                <div class="sb-title">📝 ملاحظاتي</div>
+                <textarea rows="6" placeholder="اكتب أفكارك، الملاحظات، أو خطة الحل المبدئية هنا..." oninput="TrainingMode.saveNote(this.value)">${Utils.escapeHtml(note)}</textarea>
+            </div>`;
+            },
+
+            saveNote(text) {
+                StorageManager.setNote(Utils.problemId(this.problem), text);
+            },
+
+            changeTimerMode(val) {
+                this.pauseTimer();
+                if (val === "stopwatch") {this.timer.mode = "stopwatch"; this.timer.seconds = 0;}
+                else {this.timer.mode = "countdown"; this.timer.targetSeconds = parseInt(val, 10) * 60; this.timer.seconds = 0;}
+                this.renderThinkStep(document.getElementById("trainingBody"));
+            },
+
+            toggleTimer() {
+                if (this.timer.running) this.pauseTimer();
+                else this.startTimer();
+            },
+
+            startTimer() {
+                if (this.timer.running) return;
+                this.timer.running = true;
+                this.timer.intervalId = setInterval(() => {
+                    this.timer.seconds++;
+                    const display = document.getElementById("timerDisplay");
+                    if (display) {
+                        const remaining = this.timer.mode === "countdown" ? this.timer.targetSeconds - this.timer.seconds : this.timer.seconds;
+                        display.textContent = Utils.formatTime(Math.max(0, remaining));
+                        if (this.timer.mode === "countdown" && remaining <= 0) {
+                            this.pauseTimer();
+                            Utils.toast("⏰ انتهى الوقت المحدد!", "info");
+                        }
+                    }
+                }, 1000);
+                const body = document.getElementById("trainingBody");
+                if (body && body.querySelector(".timer-box")) this.renderThinkStep(body);
+            },
+
+            pauseTimer() {
+                if (this.timer.intervalId) clearInterval(this.timer.intervalId);
+                this.timer.intervalId = null;
+                this.timer.running = false;
+            },
+
+            resetTimer() {
+                this.pauseTimer();
+                this.timer.seconds = 0;
+                const body = document.getElementById("trainingBody");
+                if (body && body.querySelector(".timer-box")) this.renderThinkStep(body);
+            },
+
+            // ---------- خطوة 4: التلميحات التدريجية ----------
+            async renderHintsStep(body) {
+                const id = Utils.problemId(this.problem);
+                const cache = StorageManager.getAICacheEntry(id);
+                if (cache && cache.coach) {body.innerHTML = this.buildHintsOnlyHtml(cache.coach, cache.revealedHints || 0); return;}
+                if (!AIEngine.hasApiKey()) {body.innerHTML = ProblemViewer.buildNoApiKeyHtml("للحصول على التلميحات، أضف مفتاح API من الإعدادات."); return;}
+                body.innerHTML = `
+            <div class="ai-cta">
+                <p>احصل على أهم الملاحظات وتلميحات تدريجية من المدرب الذكي، دون كشف الحل الكامل.</p>
+                <button class="btn btn-primary" onclick="TrainingMode.doCoachInline()">🧠 احصل على التلميحات</button>
+            </div>`;
+            },
+
+            async doCoachInline() {
+                const body = document.getElementById("trainingBody");
+                const progress = AIProgress.start(body, {label: "المدرب الذكي يحلل المسألة الآن"});
+                try {
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const statement = ProblemViewer.statement || await StatementFetcher.getStatement(this.problem);
+                    ProblemViewer.statement = statement;
+                    const plain = StatementFetcher.toPlainText(statement);
+                    progress.setStage("🤔 المدرب يفكر في أفضل طريقة للشرح...");
+                    await AIEngine.coach(this.problem, plain);
+                    UI.renderResults();
+                    progress.finish();
+                    this.renderHintsStep(body);
+                } catch (e) {
+                    progress.error(e, () => this.doCoachInline());
+                }
+            },
+
+            buildHintsOnlyHtml(coach, revealedHints) {
+                const hintsHtml = (coach.hints || []).map((hint, i) => {
+                    const revealed = i < revealedHints;
+                    if (revealed) return `<div class="hint-item"><div class="hint-btn">Hint ${i + 1}</div><div class="hint-body">${Utils.escapeHtml(hint)}</div></div>`;
+                    if (i === revealedHints) return `<div class="hint-item"><button class="hint-btn" onclick="TrainingMode.revealHint(${i + 1})">🔒 إظهار Hint ${i + 1}</button></div>`;
+                    return `<div class="hint-item locked-hint"><div class="hint-btn">🔒 Hint ${i + 1}</div></div>`;
+                }).join("");
+                return `
+            <div class="coach-section"><h4>💡 الملاحظة الأساسية</h4><div class="content">${Utils.escapeHtml(coach.observation)}</div></div>
+            <div class="coach-section"><h4>🧩 تلميحات تدريجية</h4>${hintsHtml || '<p style="color:var(--text-muted)">لا توجد تلميحات إضافية.</p>'}</div>`;
+            },
+
+            revealHint(count) {
+                StorageManager.setAICacheEntry(Utils.problemId(this.problem), {revealedHints: count});
+                this.renderHintsStep(document.getElementById("trainingBody"));
+            },
+
+            // ---------- خطوة 5: مناقشة الحل ----------
+            renderSolutionStep(body) {
+                const id = Utils.problemId(this.problem);
+                const cache = StorageManager.getAICacheEntry(id);
+                const isSolved = StorageManager.isSolved(id);
+                const algoInfo = cache && cache.coach
+                    ? `<div class="coach-section"><h4>⚙️ فكرة الخوارزمية</h4><div class="content">${Utils.escapeHtml(cache.coach.algorithm)}</div></div>
+               <div class="coach-section"><h4>📈 التعقيد الزمني</h4><div class="content">${Utils.escapeHtml(cache.coach.complexity)}</div></div>`
+                    : `<p style="color:var(--text-muted);">لم يتم إنشاء تحليل المدرب بعد لهذه المسألة — عد لخطوة "التلميحات" أولاً.</p>`;
+
+                body.innerHTML = `
+            ${algoInfo}
+            <div style="margin: 16px 0;">
+                <a class="link-chip" href="${Utils.statusUrl(this.problem)}" target="_blank">📜 شاهد حلول المستخدمين المقبولة على Codeforces</a>
+            </div>
+            <div class="code-warning-box">
+                <b>⚠️ منطقة الحل الكامل</b><br>
+                <span style="font-size:0.88em;color:var(--text-muted);">لن يظهر أي كود إلا إذا طلبته صراحة هنا.</span><br><br>
+                <button class="btn btn-danger-outline" onclick="TrainingMode.requestFullSolutionInline()">إظهار الحل الكامل (كود)</button>
+                <div id="trainingFullSolutionBox" style="margin-top:12px;"></div>
+            </div>
+            <div style="margin-top:20px; text-align:center;">
+                <button class="btn ${isSolved ? "btn-ghost" : "btn-success"}" onclick="TrainingMode.markSolvedAndFinish()">
+                    ${isSolved ? "✓ محلولة بالفعل" : "✓ تم الحل — إنهاء التدريب"}
+                </button>
+            </div>`;
+            },
+
+            async requestFullSolutionInline() {
+                const confirmed = window.confirm("هل أنت متأكد؟ سيتم عرض حل كامل بالكود لهذه المسألة الآن.");
+                if (!confirmed) return;
+                const lang = window.prompt("ما لغة البرمجة المفضلة للحل؟", "C++") || "C++";
+                const box = document.getElementById("trainingFullSolutionBox");
+                const progress = AIProgress.start(box, {label: `جاري إعداد الحل الكامل بلغة ${lang}`});
+                try {
+                    progress.setStage("📖 جاري قراءة نص المسألة...");
+                    const statement = ProblemViewer.statement || await StatementFetcher.getStatement(this.problem);
+                    const plain = StatementFetcher.toPlainText(statement);
+                    progress.setStage("✍️ جاري كتابة الحل...");
+                    const solution = await AIEngine.fullSolution(this.problem, plain, lang);
+                    progress.finish();
+                    box.innerHTML = `<pre style="white-space:pre-wrap;">${Utils.escapeHtml(solution)}</pre>`;
+                } catch (e) {
+                    progress.error(e, () => this.requestFullSolutionInline());
+                }
+            },
+
+            markSolvedAndFinish() {
+                const id = Utils.problemId(this.problem);
+                if (!StorageManager.isSolved(id)) StorageManager.toggleSolved(id);
+                UI.renderResults();
+                Utils.toast("أحسنت! تم وسم المسألة كمحلولة 🎉", "success");
+                this.exit();
+            }
+        };
+
+        /* =====================================================================
+           14) App — نقطة الدخول الرئيسية
+           ===================================================================== */
+        let allProblems = [];
+
+        const App = {
+            async init() {
+                document.getElementById("loadingRetryBtn").style.display = "none";
+                document.getElementById("loadingText").textContent = "جاري تحميل جميع المسائل من قاعدة بيانات Codeforces (لحظات من فضلك)...";
+                try {
+                    allProblems = await CFApi.fetchAllProblems();
+                    this.setupUI();
+                    document.getElementById("loading").style.display = "none";
+                    document.getElementById("app").style.display = "block";
+                } catch (e) {
+                    console.error("فشل تحميل المسائل:", e);
+                    document.getElementById("loadingText").textContent = "تعذّر جلب المسائل من Codeforces. تأكد من اتصالك بالإنترنت ثم حاول مرة أخرى.";
+                    document.getElementById("loadingRetryBtn").style.display = "inline-block";
+                }
+            },
+
+            setupUI() {
+                UI.renderTagsChips();
+                UI.renderRatingChips();
+                UI.renderResumeCard();
+                CFAccount.load();               // تحميل حساب Codeforces المحفوظ محلياً (إن وُجد) دون أي طلب شبكة جديد
+                Dashboard.renderAccountWidget();
+                SearchEngine.onFiltersChanged = Utils.debounce(() => SearchEngine._applyFiltersNow(), 200);
+                SearchEngine._applyFiltersNow();
+            }
+        };
+
+        // إغلاق الـ Modals بالضغط على المفتاح Escape، أو بالضغط خارج صندوق الـ Modal
+        document.addEventListener("keydown", (e) => {
+            if (e.key !== "Escape") return;
+            if (document.getElementById("settingsModal").classList.contains("open")) UI.closeSettings();
+            else if (document.getElementById("dashboardModal").classList.contains("open")) Dashboard.close();
+            else if (document.getElementById("problemModal").classList.contains("open")) ProblemViewer.close();
+        });
+        document.addEventListener("click", (e) => {
+            if (e.target.classList && e.target.classList.contains("modal-overlay")) {
+                e.target.classList.remove("open");
+            }
+        });
+
+        window.onload = () => App.init();
+    </script>
+
+    <!-- MathJax: لعرض المعادلات الرياضية داخل نصوص المسائل ($$$...$$$ كما تستخدمها Codeforces) -->
+    <script>
+        window.MathJax = {
+            tex: {inlineMath: [["$$$", "$$$"], ["\\(", "\\)"]]},
+            svg: {fontCache: "global"},
+            options: {skipHtmlTags: ["script", "noscript", "style", "textarea", "pre"]}
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+</body>
+
+</html>

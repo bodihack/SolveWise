@@ -1,0 +1,20 @@
+{
+  "name": "cf-statement-proxy-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production Cloudflare Worker that fetches Codeforces problem statement pages server-side (retries, timeout, edge caching, CORS, input validation, structured logging) so the frontend never talks to Codeforces HTML pages or public CORS proxies directly.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:production": "wrangler deploy --env production",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.118.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
